@@ -1,3 +1,9 @@
+/* Dear me: This file isn't needed. I'm still not gonna delete it. Why? 
+            1) The makefile may fall apart and i'm too lazy to fix it
+            2) I'm just too lazy to delete it
+    - Oct 13 2026
+*/
+
 #include <stdint.h>
 #include <stddef.h>
 
