@@ -17,7 +17,7 @@ This operating system was made to be modular but it's basically spaghetti code t
 
 # Minimum specs to run TOUR
 
-- 1,005KB RAN! (New low, beats EasyAX)
+- 1,005KB RAM! (New low, beats EasyAX)
 - Intel i486 (always locked here. who uses a 386)
 
 # Common questions
