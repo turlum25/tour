@@ -14,7 +14,8 @@
 #define VGA_COLOR_YELLOW 0x0Eu
 */
 
-static char version[] = "0.04";
+char User[1024]; // Username
+static char version[] = "0.02"; // TOUR version. Don't change variable number
 
 uint32_t CurrentTime = 0;
 #define str(str1, str2, output) (output = strings_match(str1, str2))
@@ -39,7 +40,7 @@ uint32_t parse_hex(const char *str) {
 // Commands.
 void ver() {
     printcol("TOUR (TOUR Offends UNIX Rules)\nBy Turlum25\n=========================", VGA_COLOR_GREEN);
-    printcol("Version : ", VGA_COLOR_RED);
+    printcolvar((uint32_t)"Version : ", 0, VGA_COLOR_RED);
     printcolvar((uint32_t)version, 0, VGA_COLOR_YELLOW);
 }
 void clear() {
@@ -53,15 +54,16 @@ void clear() {
     cursor_pos = 0; 
 }
 void help() {
-    printcol("help  - show this message", VGA_COLOR_WHITE);
-    printcol("ver   - show version", VGA_COLOR_WHITE);
-    printcol("clear - clear screen", VGA_COLOR_WHITE);
-    printcol("echo  - repeat text ", VGA_COLOR_WHITE);
-    printcol("peek  - read a byte from RAM address", VGA_COLOR_WHITE);
-    printcol("poke  - modify a byte at RAM address", VGA_COLOR_WHITE);
-    printcol("fetch - get system and RAM info", VGA_COLOR_WHITE);
-    printcol("time  - get current time in seconds since boot", VGA_COLOR_WHITE);
-    printcol("sleep - wait specific time", VGA_COLOR_WHITE);
+    printcol("help   - show this message", VGA_COLOR_WHITE);
+    printcol("ver    - show version", VGA_COLOR_WHITE);
+    printcol("clear  - clear screen", VGA_COLOR_WHITE);
+    printcol("echo   - repeat text ", VGA_COLOR_WHITE);
+    printcol("peek   - read a byte from RAM address", VGA_COLOR_WHITE);
+    printcol("poke   - modify a byte at RAM address", VGA_COLOR_WHITE);
+    printcol("fetch  - get system and RAM info", VGA_COLOR_WHITE);
+    printcol("time   - get current time in seconds since boot", VGA_COLOR_WHITE);
+    printcol("sleep  - wait specific time", VGA_COLOR_WHITE);
+    printcol("reboot - reboot computer", VGA_COLOR_WHITE);
 }
 void echo(const char *buffer) {
     if (strings_match(buffer, "echo")) {
@@ -126,8 +128,10 @@ void fetch() {
     DetectCPU();
     checkprintram();
     
-    printcol("\nDftUsr\n==============", VGA_COLOR_WHITE);
-    printcol("TOUR Version :", VGA_COLOR_GREEN);
+    printcol("", VGA_COLOR_WHITE);
+    printcolvar((uint32_t)User, 0, VGA_COLOR_GREEN);
+    printcol("\n==============", VGA_COLOR_WHITE);
+    printcolvar((uint32_t)"TOUR Version : ", 0, VGA_COLOR_GREEN);
     printcolvar((uint32_t)version, 0, VGA_COLOR_YELLOW);
     printcol("", VGA_COLOR_WHITE);
     printcolvar((uint32_t)"CPU          : ", 0, VGA_COLOR_WHITE);
@@ -136,11 +140,12 @@ void fetch() {
     
     uint32_t print_taken = (uint32_t)TakenRAM;
     uint32_t print_total = (uint32_t)TotalRAM; /*TotalRAM always will print 640KB. That's what the fucking BIOS sees apparently.
-                                                 Really damn irritating. Hope some smartass fixes it.*/                                    
+                                                 Really damn irritating. Hope some smartass fixes it.
+                                                 Re: Fixed. Meh.*/                                    
 
     printcolvar((uintptr_t)"RAM Taken    : ", 0, VGA_COLOR_WHITE);
     printcolvar(print_taken, 1, VGA_COLOR_YELLOW);
-    printcolvar((uintptr_t)" / ", 0, VGA_COLOR_WHITE);
+    printcolvar((uintptr_t)"KB / ", 0, VGA_COLOR_YELLOW);
     printcolvar(print_total, 1, VGA_COLOR_YELLOW); 
     printcolvar((uintptr_t)"KB\n", 0, VGA_COLOR_YELLOW);
 }
@@ -150,11 +155,30 @@ void time() {
     printcolvar(CurrentTime, 1, VGA_COLOR_YELLOW);
 }
 
+// If debug = 1, then debug. Else, no debug. Fried eggs
+static int debug = 0;
+
+
+// TODO: Fix this shitty command. Doesnt work properly
+//       TLDR: Disgrace, fix.
 void snore() {
+    // debug = 1; // EMABLE DEBUG FOR SLEEP ET CETERA
+    checkCMOSTime();
     char buff1[1024];
+    if (debug == 1) {
+        printcolvar((uint32_t)"[debug] buffer : ", 0, VGA_COLOR_YELLOW);
+        printcolvar((uint32_t)buff1, 0, VGA_COLOR_YELLOW);
+        printcol("", VGA_COLOR_WHITE);
+    }
     input("Enter seconds to sleep : ", buff1, buff1 + 1024);
-    int seconds = parse_hex(buff1);
+    int preseconds = parse_hex(buff1);
+    int seconds = preseconds + 1; // Add 1 second to sleep. THen it'll be accurate to user input
     sleep(seconds);
+    if (debug == 1) {
+        printcolvar((uint32_t)"[debug] buffer : ", 0, VGA_COLOR_YELLOW);
+        printcolvar((uint32_t)buff1, 0, VGA_COLOR_YELLOW);
+        printcol("", VGA_COLOR_WHITE);
+    }
     buff1[0] = '\0';
     buff1[1] = '\0';
     buff1[2] = '\0';
@@ -166,11 +190,46 @@ void snore() {
     buff1[8] = '\0';
     buff1[9] = '\0';
     buff1[10] = '\0';
+    if (debug == 1) {
+        printcolvar((uint32_t)"[debug] buffer : ", 0, VGA_COLOR_YELLOW);
+        printcolvar((uint32_t)buff1, 0, VGA_COLOR_YELLOW);
+        printcol("", VGA_COLOR_WHITE);
+    }
+    seconds = 0; // Clear seconds for next run
+    preseconds = 0; // Also this. We shall not forget.
+    // debug = 0; // DISABLE DEBUG FOR OTHER SHIT
+}
+
+int reboot() { // We purposefully triple faulting CPU to reboot. Hehe!
+    volatile uint16_t zero_idt[3] = {0, 0, 0};
+    __asm__ volatile ("lidt %0" : : "m"(zero_idt));
+    __asm__ volatile ("int $3");
+    while (1) {
+        __asm__ volatile ("hlt");
+    }
+}
+
+int enableDebug() {
+    debug = 1;
+}
+int disableDebug() {
+    debug = 0;
 }
 
 
 
 
+int initproc() {
+    printcol("\n\nTOUR, by Turlum25, September, October 2026", VGA_COLOR_GREEN);
+    printcolvar((uint32_t)"Version detected: ", 0, VGA_COLOR_GREEN);
+    printcolvar((uint32_t)version, 0, VGA_COLOR_YELLOW);
+    printcol("\n[warning] You may not be booting off of disk.\n          Your data may be lost after rebooting.", VGA_COLOR_RED);
+    input("Enter username: ", User, User + 1024);
+    printcolvar((uint32_t)"Your username is ", 0, VGA_COLOR_GREEN);
+    printcolvar((uint32_t)User, 0, VGA_COLOR_GREEN);
+    printcol("\n[warning] Username is currently stored in RAM as char 'User'.", VGA_COLOR_RED);
+
+}
 
 
 void _start(void) __attribute__((section(".text._start"), noreturn, used));
@@ -201,10 +260,14 @@ void _start(void) {
     static uint8_t FETCH = 0;
     static uint8_t TIME = 0;
     static uint8_t SLEEP = 0;
+    static uint8_t ENABLEDEBUG = 0;
+    static uint8_t DISABLEDEBUG = 0;
+    static uint8_t REBOOT = 0;
+
     
+    initproc();
     printcol("\nType 'help' for a list of commands.", VGA_COLOR_GREEN);
     printcol("", VGA_COLOR_WHITE);
-
 
     while (1) {
         input("# ", buff, buff + 1024);
@@ -218,7 +281,10 @@ void _start(void) {
         str(buff, "fetch", FETCH);
         str(buff, "time", TIME);
         str(buff, "sleep", SLEEP);
-        
+        str(buff, "enabledebug", ENABLEDEBUG);
+        str(buff, "disabledebug", DISABLEDEBUG);
+        str(buff, "reboot", REBOOT);
+
         if (HELP != 0) { help(); }
         else if (VER != 0) { ver(); }
         else if (ECHO != 0) { echo(buff); }
@@ -228,6 +294,9 @@ void _start(void) {
         else if (FETCH != 0) { fetch(); }
         else if (TIME != 0) { time(); }
         else if (SLEEP != 0) { snore(); }
+        else if (ENABLEDEBUG != 0) { enableDebug(); }
+        else if (DISABLEDEBUG != 0) { disableDebug(); }
+        else if (REBOOT != 0) { reboot(); }
         else { 
             printcolvar((uint32_t)"Incorrect command: ", 0, VGA_COLOR_RED);
             printcolvar((uint32_t)buff, 0, VGA_COLOR_RED);
@@ -244,6 +313,7 @@ void _start(void) {
         POKE = 0;
         TIME = 0;
         SLEEP = 0;
+        REBOOT = 0;
         
         
         if (cursor_pos != 0) {
