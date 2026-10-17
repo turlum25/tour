@@ -41,7 +41,7 @@ Note from dev:
 
 #define DISK_IMPLEMENTATION
 #define SATA_IMPLEMENTATION
-// #define EXT2_IMPLEMENTATION
+#define EXT2_IMPLEMENTATION
 
 #include "disk/tmpfs.h"
 #include "disk/sata.h"
@@ -82,6 +82,12 @@ int VERSION(int COLOR) { // This will never \n
     //        COLOR defines the color you wanna put. 
     printcol("0.03", COLOR);
 }
+
+
+// Signifies whether disk is mounted or not.
+// 0 = not mounted
+// You can find it being used first in initproc().
+static uint8_t mounted = 0;
 
 uint32_t CurrentTime = 0;
 #define str(str1, str2, output) (output = strings_match(str1, str2))
@@ -304,7 +310,6 @@ int initproc() {
     printcol("\n[note] This disk driver is still in development. Please use in caution. \n", VGA_COLOR_YELLOW);
     sleep(0.5);
     
-    int mounted = 0;
     if (sata_detect_device(&primary_sata_master, 0x1F0, 0x3F6, 0)) {
         printcol("[disk] Found SATA storage link at primary master channel\n", VGA_COLOR_GREEN);
         mounted = 1;
@@ -373,6 +378,8 @@ static int parse_lba_silent(const char *buff, const char *cmd, uint32_t *lba, co
 }
 
 int strpeek(const char *buff) {
+    if (!mounted) { printcol("Disk is not mounted.\n", VGA_COLOR_RED); 
+        return 1; }
     uint32_t lba;
     if (!parse_lba_silent(buff, "strpeek", &lba, NULL)) return 0;
 
@@ -385,13 +392,17 @@ int strpeek(const char *buff) {
         if (c >= 32 && c <= 126) {
             out[0] = c;
             printcolvar((uint32_t)out, 0, VGA_COLOR_WHITE);
-        } else if (c == '\n' || c == '\r') {}
+        } else if (c == '\n' || c == '\r') {
+            printcol("Usage: strpeek [sectorNumber]\n", VGA_COLOR_WHITE);
+        }
     }
     printcol("\n", VGA_COLOR_WHITE);
     return 1;
 }
 
 int strpoke(const char *buff) {
+    if (!mounted) { printcol("Disk is not mounted.\n", VGA_COLOR_RED); 
+        return 1; }
     uint32_t lba;
     const char *payload = NULL;
     uint8_t sector_buff[STR_SECTOR_SIZE];
@@ -414,8 +425,7 @@ int strpoke(const char *buff) {
 
 
 
-// Dear spookinate: I packed a shell into the kernel
-//                  Enjoy
+
 void kernel_main(void) __attribute__((noreturn, used));
 
 void kernel_main(void) {
