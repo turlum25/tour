@@ -73,13 +73,25 @@ start:
     jmp .save_memory
 
 .fallback:
-    clc
-    mov ah, 0x88
+    xor ecx, ecx
+    xor edx, edx
+    mov ax, 0xE801
     int 0x15
-    jc .error
-    add ax, 1024
-    and eax, 0xFFFF
+    jc .error     
+    cmp ah, 0x86 
+    je .error
+
+    and ecx, 0xFFFF   
+    and edx, 0xFFFF
+
+    shl edx, 6
+
+    add ecx, edx
+    add ecx, 1024     
+    mov eax, ecx
     jmp .save_memory
+
+
 
 .error:
     xor eax, eax
@@ -98,6 +110,9 @@ start:
     or al, 0x02
     out 0x92, al
 
+    mov ax, 0x2401
+    int 0x15
+
     mov dl, [boot_drive]
     mov bx, 0x55AA
     mov ah, 0x41
@@ -110,17 +125,18 @@ start:
 
     mov si, disk_address_packet
     mov dl, [boot_drive]
-    mov ah, 0x42
-    int 0x13
+    call bios_read_sectors
     jc .chs_read
     jmp .disk_done
 
 .chs_read:
-    mov bx, 0x8000
+    mov ax, 0x1000
+    mov es, ax
+    xor bx, bx
     mov cl, 2
     mov ch, 0
     mov dh, 0
-    mov di, 32
+    mov di, 64     
 
 .read_sector_loop:
     push di
@@ -128,18 +144,41 @@ start:
     mov al, 1
     mov dl, [boot_drive]
     int 0x13
+    jnc .sector_ok
+
+    xor ax, ax
+    int 0x13
+    mov ah, 0x02
+    mov al, 1
+    mov dl, [boot_drive]
+    int 0x13
     jc disk_crash
 
+.sector_ok:
     pop di
-    add bx, 512
+    
+    mov ax, es
+    add ax, 0x0020
+    mov es, ax
+    
     dec di
     cmp di, 0
     je .disk_done
 
     inc cl
+    
+    mov al, [boot_drive]
+    cmp al, 0x80
+    jae .hd_limits
     cmp cl, 19
     jl .read_sector_loop
+    jmp .track_step
 
+.hd_limits:
+    cmp cl, 64
+    jl .read_sector_loop
+
+.track_step:
     mov cl, 1
     inc dh
     cmp dh, 2
@@ -167,7 +206,7 @@ start:
     mov gs, ax
     mov ss, ax
     mov esp, 0x90000
-    jmp 0x8000
+    jmp 0x10000
 
 [bits 16]
 disk_crash:
@@ -184,15 +223,38 @@ print_string_16:
 .done:
     ret
 
+bios_read_sectors:
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    push di
+    push bp
+    push ds
+    push es
+    mov ah, 0x42
+    int 0x13
+    pop es
+    pop ds
+    pop bp
+    pop di
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+
 msg db "Booted", 0x0D, 0x0A, 0
 boot_drive db 0
 
 align 4
 disk_address_packet:
     db 0x10, 0
-    dw 32
-    dw 0x8000
-    dw 0
+    dw 64               
+    dw 0x0000                   
+    dw 0x1000                   
     dq 1
 
 align 8
