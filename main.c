@@ -41,9 +41,8 @@ Note from dev:
 
 #define DISK_IMPLEMENTATION
 #define SATA_IMPLEMENTATION
-#define EXT2_IMPLEMENTATION
+// #define EXT2_IMPLEMENTATION
 
-#include "disk/disk.h"
 #include "disk/tmpfs.h"
 #include "disk/sata.h"
 
