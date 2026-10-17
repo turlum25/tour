@@ -414,7 +414,8 @@ int strpoke(const char *buff) {
 
 
 
-
+// Dear spookinate: I packed a shell into the kernel
+//                  Enjoy
 void kernel_main(void) __attribute__((noreturn, used));
 
 void kernel_main(void) {
