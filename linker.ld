@@ -1,30 +1,34 @@
-OUTPUT_FORMAT("binary")
 ENTRY(_start)
-
-SECTIONS
-{
-    . = 0x8000;
-
-    /* Define the absolute kernel start boundary symbol for main.c */
+SECTIONS {
+    . = ALIGN(4096);
+    . = 0x10000;
     __kernel_start = .;
 
-    .text : { 
-        *(.text._start)
-        *(.text*) 
+    .text : {
+        . = ALIGN(16);
+        KEEP(*(.text._start))
+        KEEP(*(.multiboot))
+        *(.text .text.*)
     }
-    
-    .data : { 
-        *(.data*) 
-        *(.rodata*)
+
+    .rodata : {
+        . = ALIGN(16);
+        *(.rodata .rodata.*)
     }
-    
-    .bss  : {
+
+    .data : {
+        . = ALIGN(16);
+        *(.data .data.*)
+    }
+
+    .bss : {
+        . = ALIGN(16);
         __bss_start = .;
-        *(.bss*)
+        *(.bss .bss.*)
         *(COMMON)
         __bss_end = .;
     }
 
-    /* Define the absolute kernel end boundary symbol for main.c */
+    . = ALIGN(16);
     __kernel_end = .;
 }
