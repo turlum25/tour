@@ -38,12 +38,34 @@ void put_char(char ch, uint8_t color) {
     cursor_pos += 2u;
 }
 
-void printcol(const char *str, uint8_t color) {
+void printcol(const char *str, uint8_t color, ...) {
+    if (str == NULL) return;
+
+    uint32_t *args = (uint32_t *)&color + 1;
+    int arg_idx = 0;
+
     while (*str != '\0') {
-        put_char(*str++, color);
+        if (*str == '%' && *(str + 1) == 's') {
+            const char *str_var = (const char *)args[arg_idx++];
+            if (str_var != NULL) {
+                while (*str_var != '\0') {
+                    put_char(*str_var++, color);
+                }
+            }
+            str += 2;
+        } 
+      
+        else if (*str == '\n') {
+            newline_32();
+            str++;
+        }
+        else {
+            
+            put_char(*str++, color);
+        }
     }
-    newline_32();
 }
+
 
 static void print_uint32_helper(uint32_t num, uint8_t color) {
     char num_buf[32]; 
@@ -73,19 +95,26 @@ static void print_uint32_helper(uint32_t num, uint8_t color) {
     }
 }
 
-
-void printcolvar(uint64_t data, uint8_t mode, uint8_t color) {
+void printcolvar(uint32_t data, uint8_t mode, uint8_t color) {
     if (mode == 0) {
-        const char *str_ptr = (const char*)(uint32_t)data;
+        const char *str_ptr = (const char*)data;
         while (*str_ptr != '\0') {
             put_char(*str_ptr, color);
             str_ptr++;
         }
     } 
     else if (mode == 2) {
-        put_char((char)(uint32_t)data, color);
+        put_char((char)data, color);
     } 
     else {
-        print_uint32_helper((uint32_t)data, color);
+        print_uint32_helper(data, color);
+    }
+}
+
+void print_pure_string(const char *str, uint8_t color) {
+    if (str == NULL) return;
+    while (*str != '\0') {
+        put_char(*str, color);
+        str++;
     }
 }
