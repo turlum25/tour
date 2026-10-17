@@ -1,8 +1,56 @@
+/*
+main.c
+By Turlum25 , Added YNB beta
+
+Sometimes code needs to be written via hand
+
+Oct 16 2026: I WILL FUCKING KILL YOU DLS()
+             Re: I removed it. Peace at last
+
+Note from dev: 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            Gay.
+*/
+
 #include "kernel.h"
 #include "keyboard.h"
+
 #include "system/detect.h"
 #include "system/memory.h"
 #include "system/time.h"
+
+#define DISK_IMPLEMENTATION
+#define SATA_IMPLEMENTATION
+#define EXT2_IMPLEMENTATION
+
+#include "disk/disk.h"
+#include "disk/tmpfs.h"
+#include "disk/sata.h"
+
+// Vowed myself to not add this. Had to add this too.
+#include <stdint.h>
+#include <stddef.h>
+
 
 // Dear forkers:
 // Functions on top. Main cool stuff bottom. Don't leave early. Thanks
@@ -14,8 +62,27 @@
 #define VGA_COLOR_YELLOW 0x0Eu
 */
 
+static uint8_t str_sector_buffer[SATA_SECTOR_SIZE];
+
+// If debug = 1, then debug. Else, no debug. Fried eggs
+static int debug = 1;
+extern void bios_probe(void);
+volatile uint16_t bios_probe_flags;
+volatile uint16_t bios_probe_bx;
+
+
 char User[1024]; // Username
-static char version[] = "0.02"; // TOUR version. Don't change variable number
+
+// I SWEAR TO GOD I WILL SCREAM TOUR CAN PRINT ANY VARIABLE BUT THIS FOR SOME FUCKING REASON
+// static const char VERSION[8] = 0.03; // TOUR VERSION. Don't change variable naem. We don't gotta be dumbasses, yk
+// I commented it. God i want some peace, and blame fucking God for making me rewrite.. printcol. MY BABY!! WAAAH
+// New version below.
+
+int VERSION(int COLOR) { // This will never \n
+    // Notes: This int just prints the version. Mod however you like, forkers 
+    //        COLOR defines the color you wanna put. 
+    printcol("0.03", COLOR);
+}
 
 uint32_t CurrentTime = 0;
 #define str(str1, str2, output) (output = strings_match(str1, str2))
@@ -39,9 +106,10 @@ uint32_t parse_hex(const char *str) {
 
 // Commands.
 void ver() {
-    printcol("TOUR (TOUR Offends UNIX Rules)\nBy Turlum25\n=========================", VGA_COLOR_GREEN);
+    printcol("TOUR (TOUR Offends UNIX Rules)\nBy Turlum25\n=========================\n", VGA_COLOR_GREEN);
     printcolvar((uint32_t)"Version : ", 0, VGA_COLOR_RED);
-    printcolvar((uint32_t)version, 0, VGA_COLOR_YELLOW);
+    VERSION(VGA_COLOR_YELLOW);
+    printcol("\n", VGA_COLOR_YELLOW);
 }
 void clear() {
     extern uint32_t cursor_pos; 
@@ -54,26 +122,28 @@ void clear() {
     cursor_pos = 0; 
 }
 void help() {
-    printcol("help   - show this message", VGA_COLOR_WHITE);
-    printcol("ver    - show version", VGA_COLOR_WHITE);
-    printcol("clear  - clear screen", VGA_COLOR_WHITE);
-    printcol("echo   - repeat text ", VGA_COLOR_WHITE);
-    printcol("peek   - read a byte from RAM address", VGA_COLOR_WHITE);
-    printcol("poke   - modify a byte at RAM address", VGA_COLOR_WHITE);
-    printcol("fetch  - get system and RAM info", VGA_COLOR_WHITE);
-    printcol("time   - get current time in seconds since boot", VGA_COLOR_WHITE);
-    printcol("sleep  - wait specific time", VGA_COLOR_WHITE);
-    printcol("reboot - reboot computer", VGA_COLOR_WHITE);
+    printcol("help    - show this message\n", VGA_COLOR_WHITE);
+    printcol("ver     - show version\n", VGA_COLOR_WHITE); // Practically useless after i made fetch.
+    printcol("clear   - clear screen\n", VGA_COLOR_WHITE);
+    printcol("echo    - repeat text \n", VGA_COLOR_WHITE);
+    printcol("peek    - read a byte from RAM address\n", VGA_COLOR_WHITE);
+    printcol("poke    - modify a byte at RAM address\n", VGA_COLOR_WHITE);
+    printcol("fetch   - get system and RAM info\n", VGA_COLOR_WHITE);
+    printcol("time    - get current time in seconds since boot\n", VGA_COLOR_WHITE);
+    printcol("sleep   - wait specific time\n", VGA_COLOR_WHITE);
+    printcol("strpeek - read specific sector in SSD\n", VGA_COLOR_WHITE);
+    printcol("strpoke - write specific sector in SSD\n", VGA_COLOR_WHITE);
+    printcol("reboot  - reboot computer\n", VGA_COLOR_WHITE);
 }
 void echo(const char *buffer) {
     if (strings_match(buffer, "echo")) {
-        printcol("", VGA_COLOR_WHITE);
+        printcol("\n", VGA_COLOR_WHITE);
         return;
     }
     if (StringPrefixMatch(buffer, "echo ")) {
         printcol(buffer + 5, VGA_COLOR_WHITE);
     } else {
-        printcol("Incorrect echo formatting\nUsage: echo <text>", VGA_COLOR_RED);
+        printcol("Incorrect echo formatting\nUsage: echo <text>\n", VGA_COLOR_RED);
     }
 }
 
@@ -82,12 +152,12 @@ void peek(const char *buffer) {
     volatile uint8_t *ptr = (volatile uint8_t *)address;
     uint8_t value = *ptr;
 
-    printcol("Reading memory...", VGA_COLOR_WHITE);
+    printcol("Reading memory\n", VGA_COLOR_WHITE);
     if (value >= 32 && value <= 126) {
         char out_str[2] = {(char)value, '\0'};
         printcol(out_str, VGA_COLOR_YELLOW);
     } else {
-        printcol("Error (Cannot really read bytes)", VGA_COLOR_RED);
+        printcol("Error (Cannot read bytes)\n", VGA_COLOR_RED);
     }
 }
 
@@ -97,7 +167,7 @@ void poke(const char *buffer) {
         i++;
     }
     if (buffer[i] == '\0') {
-        printcol("Error (Invalid target value. Did you enter right value?)", VGA_COLOR_RED);
+        printcol("Error (Invalid target value. Did you enter right value?)\n", VGA_COLOR_RED);
         return;
     }
     
@@ -114,7 +184,7 @@ void poke(const char *buffer) {
     
 
     if (address >= 0x08000 && address < 0x20000) {
-        printcol("Critical error (User tried modifying kernel space)", VGA_COLOR_RED);
+        printcol("Critical error (User tried modifying kernel space)\n", VGA_COLOR_RED);
         return;
     }
     
@@ -124,19 +194,22 @@ void poke(const char *buffer) {
     printcol("Done", VGA_COLOR_GREEN);
 }
 
+
+// Dear me: ...
+//          Presenting.. Just fetch.
 void fetch() {
     DetectCPU();
     checkprintram();
     
-    printcol("", VGA_COLOR_WHITE);
+    printcol("\n", VGA_COLOR_WHITE);
     printcolvar((uint32_t)User, 0, VGA_COLOR_GREEN);
-    printcol("\n==============", VGA_COLOR_WHITE);
+    printcol("\n==============\n", VGA_COLOR_WHITE);
     printcolvar((uint32_t)"TOUR Version : ", 0, VGA_COLOR_GREEN);
-    printcolvar((uint32_t)version, 0, VGA_COLOR_YELLOW);
-    printcol("", VGA_COLOR_WHITE);
+    VERSION(VGA_COLOR_YELLOW);
+    printcol("\n", VGA_COLOR_WHITE);
     printcolvar((uint32_t)"CPU          : ", 0, VGA_COLOR_WHITE);
     printcolvar((uint32_t)CPUType, 0, VGA_COLOR_YELLOW);
-    printcol("", VGA_COLOR_WHITE);
+    printcol("\n", VGA_COLOR_WHITE);
     
     uint32_t print_taken = (uint32_t)TakenRAM;
     uint32_t print_total = (uint32_t)TotalRAM; /*TotalRAM always will print 640KB. That's what the fucking BIOS sees apparently.
@@ -152,32 +225,35 @@ void fetch() {
 
 void time() {
     checkCMOSTime();
+    printcolvar((uint32_t)"Seconds from boot: ", 0, VGA_COLOR_WHITE);
     printcolvar(CurrentTime, 1, VGA_COLOR_YELLOW);
 }
-
-// If debug = 1, then debug. Else, no debug. Fried eggs
-static int debug = 0;
 
 
 // TODO: Fix this shitty command. Doesnt work properly
 //       TLDR: Disgrace, fix.
+// Re: TODO done, at least i think 
+//     Might still be one of, at least, the shittiest commands of this kernel ever. 
+//     I admit it: I have not tested this. I am full of shit just like roman bellic 
+//                 Niko my cousin! Let's go for some bowling
 void snore() {
     // debug = 1; // EMABLE DEBUG FOR SLEEP ET CETERA
     checkCMOSTime();
     char buff1[1024];
-    if (debug == 1) {
+    if (debug == 1) { // Originally added debug just to see buff1. How lazy am I?
         printcolvar((uint32_t)"[debug] buffer : ", 0, VGA_COLOR_YELLOW);
         printcolvar((uint32_t)buff1, 0, VGA_COLOR_YELLOW);
-        printcol("", VGA_COLOR_WHITE);
+        printcol("\n", VGA_COLOR_WHITE);
     }
     input("Enter seconds to sleep : ", buff1, buff1 + 1024);
     int preseconds = parse_hex(buff1);
     int seconds = preseconds + 1; // Add 1 second to sleep. THen it'll be accurate to user input
+                                  // "Your honor i added an extra second to align with *fucking reality*"
     sleep(seconds);
     if (debug == 1) {
         printcolvar((uint32_t)"[debug] buffer : ", 0, VGA_COLOR_YELLOW);
         printcolvar((uint32_t)buff1, 0, VGA_COLOR_YELLOW);
-        printcol("", VGA_COLOR_WHITE);
+        printcol("\n", VGA_COLOR_WHITE);
     }
     buff1[0] = '\0';
     buff1[1] = '\0';
@@ -193,7 +269,7 @@ void snore() {
     if (debug == 1) {
         printcolvar((uint32_t)"[debug] buffer : ", 0, VGA_COLOR_YELLOW);
         printcolvar((uint32_t)buff1, 0, VGA_COLOR_YELLOW);
-        printcol("", VGA_COLOR_WHITE);
+        printcol("\n", VGA_COLOR_WHITE);
     }
     seconds = 0; // Clear seconds for next run
     preseconds = 0; // Also this. We shall not forget.
@@ -216,25 +292,133 @@ int disableDebug() {
     debug = 0;
 }
 
-
-
+// Starts up username, disk drivers.
 
 int initproc() {
-    printcol("\n\nTOUR, by Turlum25, September, October 2026", VGA_COLOR_GREEN);
+    printcol("\n\nTOUR, by Turlum25, September, October 2026\n", VGA_COLOR_GREEN);
     printcolvar((uint32_t)"Version detected: ", 0, VGA_COLOR_GREEN);
-    printcolvar((uint32_t)version, 0, VGA_COLOR_YELLOW);
-    printcol("\n[warning] You may not be booting off of disk.\n          Your data may be lost after rebooting.", VGA_COLOR_RED);
-    input("Enter username: ", User, User + 1024);
+    VERSION(VGA_COLOR_YELLOW);
+    printcol("\n[warning] You may not be booting off of disk.\n          Your data may be lost after rebooting.\n", VGA_COLOR_RED);
+
+    init_tmpfs(); // Starts temporary file system. Needed for disk mounting
+
+    printcol("\n[note] This disk driver is still in development. Please use in caution. \n", VGA_COLOR_YELLOW);
+    sleep(0.5);
+    
+    int mounted = 0;
+    if (sata_detect_device(&primary_sata_master, 0x1F0, 0x3F6, 0)) {
+        printcol("[disk] Found SATA storage link at primary master channel\n", VGA_COLOR_GREEN);
+        mounted = 1;
+    } else {
+        printcol("[warning] Storage not available or sig bytes mismatched\n", VGA_COLOR_RED);
+    }
+
+    if (!mounted) {
+        printcol("[warning] No mountable disks found.\n\n", VGA_COLOR_RED);
+    }
+
+    input("Enter new username: ", User, User + 1024);
     printcolvar((uint32_t)"Your username is ", 0, VGA_COLOR_GREEN);
     printcolvar((uint32_t)User, 0, VGA_COLOR_GREEN);
-    printcol("\n[warning] Username is currently stored in RAM as char 'User'.", VGA_COLOR_RED);
 
+    // Practically telling user to look for their names in the large bytes of ram. HAHAHAHAHAHA IM SO EVIL
+    printcol("\n[warning] Username is currently stored in RAM as char 'User'.", VGA_COLOR_RED); 
+    // Sir, I was late for work because I was looking for my username in TOUR's RAM
+
+
+    return 0;
 }
 
 
-void _start(void) __attribute__((section(".text._start"), noreturn, used));
+// Just too damn lazy to explain these two functions, read it, earn some IQ points (you probably have none)
+// In case you're a really big dumbass who doesn't know how to read C and use AI to use it:
+// strpeek absolutely sudo rm -fr /* your PC. 
+// strpoke totally haxxors the mainframe of your pentagon opsec levels and accesses the memory buffer of each FBI agent's terminal
+// Trust (/s)
 
-void _start(void) {
+#define STR_SECTOR_SIZE 512u
+
+char ReadStorage[STR_SECTOR_SIZE];
+
+static int parse_lba_silent(const char *buff, const char *cmd, uint32_t *lba, const char **args) {
+    if (!buff || !cmd || !lba) return 0;
+    while (*cmd && *buff == *cmd) { cmd++; buff++; }
+    if (*cmd != '\0' || (*buff != ' ' && *buff != '\t')) return 0;
+    while (*buff == ' ' || *buff == '\t') buff++;
+
+    uint32_t base = 10u;
+    if (buff[0] == '0' && (buff[1] == 'x' || buff[1] == 'X')) {
+        base = 16u;
+        buff += 2;
+    }
+
+    uint32_t val = 0;
+    int digits = 0;
+    while (*buff && *buff != ' ' && *buff != '\t') {
+        uint32_t d = 0xFFFFFFFFu;
+        if (*buff >= '0' && *buff <= '9') d = (uint32_t)(*buff - '0');
+        else if (base == 16u) {
+            if (*buff >= 'a' && *buff <= 'f') d = (uint32_t)(*buff - 'a' + 10);
+            else if (*buff >= 'A' && *buff <= 'F') d = (uint32_t)(*buff - 'A' + 10);
+        }
+        if (d >= base || val > (0xFFFFFFFFu - d) / base) return 0;
+        val = val * base + d;
+        digits++;
+        buff++;
+    }
+    if (!digits) return 0;
+    *lba = val;
+    while (*buff == ' ' || *buff == '\t') buff++;
+    if (args) *args = buff;
+    return 1;
+}
+
+int strpeek(const char *buff) {
+    uint32_t lba;
+    if (!parse_lba_silent(buff, "strpeek", &lba, NULL)) return 0;
+
+    for (uint32_t i = 0; i < STR_SECTOR_SIZE; i++) ReadStorage[i] = '\0';
+    if (!sata_read_sector(&primary_sata_master, lba, (uint8_t *)ReadStorage)) return 0;
+
+    char out[2] = { '\0', '\0' };
+    for (uint32_t i = 0; i < STR_SECTOR_SIZE; i++) {
+        char c = ReadStorage[i];
+        if (c >= 32 && c <= 126) {
+            out[0] = c;
+            printcolvar((uint32_t)out, 0, VGA_COLOR_WHITE);
+        } else if (c == '\n' || c == '\r') {}
+    }
+    printcol("\n", VGA_COLOR_WHITE);
+    return 1;
+}
+
+int strpoke(const char *buff) {
+    uint32_t lba;
+    const char *payload = NULL;
+    uint8_t sector_buff[STR_SECTOR_SIZE];
+
+    if (!parse_lba_silent(buff, "strpoke", &lba, &payload) || !payload || *payload == '\0') return 0;
+
+    for (uint32_t i = 0; i < STR_SECTOR_SIZE; i++) sector_buff[i] = '\0';
+
+    uint32_t i = 0;
+    while (payload[i] != '\0' && i < (STR_SECTOR_SIZE - 1u)) {
+        sector_buff[i] = (uint8_t)payload[i];
+        i++;
+    }
+
+    if (!sata_write_sector(&primary_sata_master, lba, sector_buff)) return 0;
+    return 1;
+}
+
+// Why do I not comment at all in super fucking duper complicated functions? 
+
+
+
+
+void kernel_main(void) __attribute__((noreturn, used));
+
+void kernel_main(void) {
     
     extern uint8_t __bss_start, __bss_end;
     extern uint32_t cursor_pos; 
@@ -257,6 +441,8 @@ void _start(void) {
     static uint8_t EXIT = 0;
     static uint8_t PEEK = 0;
     static uint8_t POKE = 0;
+    static uint8_t STRPOKE = 0;
+    static uint8_t STRPEEK = 0;
     static uint8_t FETCH = 0;
     static uint8_t TIME = 0;
     static uint8_t SLEEP = 0;
@@ -267,7 +453,7 @@ void _start(void) {
     
     initproc();
     printcol("\nType 'help' for a list of commands.", VGA_COLOR_GREEN);
-    printcol("", VGA_COLOR_WHITE);
+    printcol("\n", VGA_COLOR_WHITE);
 
     while (1) {
         input("# ", buff, buff + 1024);
@@ -284,6 +470,8 @@ void _start(void) {
         str(buff, "enabledebug", ENABLEDEBUG);
         str(buff, "disabledebug", DISABLEDEBUG);
         str(buff, "reboot", REBOOT);
+        STRPEEK = StringPrefixMatch(buff, "strpeek ");
+        STRPOKE = StringPrefixMatch(buff, "strpoke ");
 
         if (HELP != 0) { help(); }
         else if (VER != 0) { ver(); }
@@ -297,6 +485,8 @@ void _start(void) {
         else if (ENABLEDEBUG != 0) { enableDebug(); }
         else if (DISABLEDEBUG != 0) { disableDebug(); }
         else if (REBOOT != 0) { reboot(); }
+        else if (STRPEEK != 0) { strpeek(buff); }
+        else if (STRPOKE != 0) { strpoke(buff); }
         else { 
             printcolvar((uint32_t)"Incorrect command: ", 0, VGA_COLOR_RED);
             printcolvar((uint32_t)buff, 0, VGA_COLOR_RED);
@@ -313,13 +503,15 @@ void _start(void) {
         POKE = 0;
         TIME = 0;
         SLEEP = 0;
-        REBOOT = 0;
+        STRPEEK = 0;
+        STRPOKE = 0;
+        // REBOOT = 0; Not needed. This value resets back to 0 after reboot.
         
         
         if (cursor_pos != 0) {
-            printcol("", VGA_COLOR_WHITE);
+            printcol("\n", VGA_COLOR_WHITE);
         }
-        printcol("", VGA_COLOR_WHITE);
+        printcol("\n", VGA_COLOR_WHITE);
     }
 
    // End of main kernel stuff.
