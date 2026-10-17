@@ -5,8 +5,6 @@
 #include <stddef.h>
 #include <string.h>
 #include "sata.h"
-#include "fs/ext2.h"
-#include "fs/ext2/src/dirent.h"
 
 #define DISKLIST_MAX_ENTRIES 100u
 
