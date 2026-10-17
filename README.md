@@ -9,6 +9,12 @@ TOUR (TOUR Offends UNIX Rules) is a lightweight OS made to run on QEMU (without 
 
 This operating system was made to be modular but it's basically spaghetti code to me now. I die
 
+# What can TOUR do?
+
+- Read and wteri SATA disk sectors
+- Detect total RAM and how much RAM is taken
+- Look cool and haxxor moed
+
 # Minimum specs to run TOUR
 
 - 4MB (GRUB version) / 1,005KB (GRUB-less version) RAM
@@ -27,6 +33,12 @@ How to compile:
 - CD to your TOUR folder.
 - Run command: `make` to make GRUB-less version, `make grub` to make the GRUB version (in case you are not a psychopath and compile it yourself)
 - To run command, run `make run` (use `make makedisk`, then `make rundisk` to run with SATA R/W support). For deleting the OS IMG, ISO and the .o files, run `make clean`.
+
+# Can TOUR run on real hardware?
+
+Oh yes it can! TOUR runs really well in my laptop (Xiaomi Notebook Air 13.3 2016). If it can run on that, then it can run on *your* computer too!
+
+But there is obviously a catch: My terrible bootloader obviously will never work for real silicon. So, simply use the GRUB version.
 
 # Common questions
 
