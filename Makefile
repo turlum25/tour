@@ -30,7 +30,7 @@ grub: tour.img kernel.elf boot/grub/grub.cfg
 $(OBJ_DIR):
 	mkdir -p $(OBJ_DIR)
 
-$(OBJ_DIR)/main.o: main.c disk/disk.h disk/sata.h | $(OBJ_DIR)
+$(OBJ_DIR)/main.o: main.c disk/sata.h | $(OBJ_DIR)
 	gcc $(CFLAGS) main.c -o $(OBJ_DIR)/main.o
 
 $(OBJ_DIR)/vga.o: vga.c | $(OBJ_DIR)
@@ -47,9 +47,6 @@ $(OBJ_DIR)/multiboot.o: multiboot.asm | $(OBJ_DIR)
 
 $(OBJ_DIR)/multiboot_c.o: multiboot.c | $(OBJ_DIR)
 	gcc $(CFLAGS) -fno-builtin multiboot.c -o $(OBJ_DIR)/multiboot_c.o
-
-$(OBJ_DIR)/bios.o: disk/bios.asm | $(OBJ_DIR) # Forgot why this is needed but i'll keep it
-	nasm -f elf32 disk/bios.asm -o $(OBJ_DIR)/bios.o
 
 boot.bin: boot.asm
 	nasm -f bin boot.asm -o boot.bin
