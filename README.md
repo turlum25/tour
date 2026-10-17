@@ -5,13 +5,13 @@
   
   
 # What is TOUR?
-TOUR (TOUR Offends UNIX Rules) is a lightweight OS made to run on QEMU (i have NOT figured out how to get it working on my laptop) made on C and Assembly.
+TOUR (TOUR Offends UNIX Rules) is a lightweight OS made to run on QEMU (without GRUB) and real hardware, made on C and Assembly.
 
 This operating system was made to be modular but it's basically spaghetti code to me now. I die
 
 # Minimum specs to run TOUR
 
-- 1,005KB RAM! (New low, beats EasyAX)
+- 4MB (GRUB version) / 1,005KB (GRUB-less version) RAM
 - Intel i486 (always locked here. who uses a 386)
 
 # Building TOUR
@@ -25,14 +25,14 @@ First off, you need:
 
 How to compile:
 - CD to your TOUR folder.
-- Run command: `make` (in case you are not a psychopath and compile it yourself)
-- To run command, run `make run`. For deleting the OS IMG and the .o files, run `make clean`.
+- Run command: `make` to make GRUB-less version, `make grub` to make the GRUB version (in case you are not a psychopath and compile it yourself)
+- To run command, run `make run` (use `make makedisk`, then `make rundisk` to run with SATA R/W support). For deleting the OS IMG, ISO and the .o files, run `make clean`.
 
 # Common questions
 
-- Wen eta better bootloadr?
+- Wen eta better TOUR bootloadr?
 
-Never.
+Never. Use GRUB if you wanna.
 
 - Does it run Doom yet?
 
