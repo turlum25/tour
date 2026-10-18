@@ -394,7 +394,6 @@ int strpeek(const char *buff) {
     for (uint32_t i = 0; i < STR_SECTOR_SIZE; i++) ReadStorage[i] = '\0';
     if (!sata_read_sector(&primary_sata_master, lba, (uint8_t *)ReadStorage)) return 0;
 
-    // FIXED: Allocate a static 2-byte string buffer ONCE to prevent stack fragmentation
     char out_str[2] = { '\0', '\0' };
     
     for (uint32_t i = 0; i < STR_SECTOR_SIZE; i++) {
