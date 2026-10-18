@@ -73,14 +73,14 @@ volatile uint16_t bios_probe_bx;
 char User[1024]; // Username
 
 // I SWEAR TO GOD I WILL SCREAM TOUR CAN PRINT ANY VARIABLE BUT THIS FOR SOME FUCKING REASON
-// static const char VERSION[8] = 0.03; // TOUR VERSION. Don't change variable naem. We don't gotta be dumbasses, yk
+// static const char VERSION[8] = "0.03"; // TOUR VERSION. Don't change variable naem. We don't gotta be dumbasses, yk
 // I commented it. God i want some peace, and blame fucking God for making me rewrite.. printcol. MY BABY!! WAAAH
 // New version below.
 
 int VERSION(int COLOR) { // This will never \n
     // Notes: This int just prints the version. Mod however you like, forkers 
     //        COLOR defines the color you wanna put. 
-    printcol("0.03", COLOR);
+    printcol("0.04", COLOR);
 }
 
 
@@ -342,11 +342,17 @@ int initproc() {
 
 #define STR_SECTOR_SIZE 512u
 
-char ReadStorage[STR_SECTOR_SIZE];
+__attribute__((aligned(4096))) char ReadStorage[512];
+
 
 static int parse_lba_silent(const char *buff, const char *cmd, uint32_t *lba, const char **args) {
     if (!buff || !cmd || !lba) return 0;
     while (*cmd && *buff == *cmd) { cmd++; buff++; }
+    if (*cmd == '\0' && *buff == '\0') {
+        *lba = 0u; // Fallback to safe baseline sector
+        if (args) *args = buff;
+        return 1;  
+    }
     if (*cmd != '\0' || (*buff != ' ' && *buff != '\t')) return 0;
     while (*buff == ' ' || *buff == '\t') buff++;
 
@@ -378,27 +384,34 @@ static int parse_lba_silent(const char *buff, const char *cmd, uint32_t *lba, co
 }
 
 int strpeek(const char *buff) {
-    if (!mounted) { printcol("Disk is not mounted.\n", VGA_COLOR_RED); 
-        return 1; }
+    if (!mounted) { 
+        printcol("Disk is not mounted.\n", VGA_COLOR_RED); 
+        return 1; 
+    }
     uint32_t lba;
     if (!parse_lba_silent(buff, "strpeek", &lba, NULL)) return 0;
 
     for (uint32_t i = 0; i < STR_SECTOR_SIZE; i++) ReadStorage[i] = '\0';
     if (!sata_read_sector(&primary_sata_master, lba, (uint8_t *)ReadStorage)) return 0;
 
-    char out[2] = { '\0', '\0' };
+    // FIXED: Allocate a static 2-byte string buffer ONCE to prevent stack fragmentation
+    char out_str[2] = { '\0', '\0' };
+    
     for (uint32_t i = 0; i < STR_SECTOR_SIZE; i++) {
         char c = ReadStorage[i];
+        
         if (c >= 32 && c <= 126) {
-            out[0] = c;
-            printcolvar((uint32_t)out, 0, VGA_COLOR_WHITE);
-        } else if (c == '\n' || c == '\r') {
-            printcol("Usage: strpeek [sectorNumber]\n", VGA_COLOR_WHITE);
+            out_str[0] = c;
+            printcol(out_str, VGA_COLOR_WHITE); 
+        } else {
+            printcol(".", VGA_COLOR_WHITE);
         }
     }
+    
     printcol("\n", VGA_COLOR_WHITE);
     return 1;
 }
+
 
 int strpoke(const char *buff) {
     if (!mounted) { printcol("Disk is not mounted.\n", VGA_COLOR_RED); 
@@ -418,13 +431,17 @@ int strpoke(const char *buff) {
     }
 
     if (!sata_write_sector(&primary_sata_master, lba, sector_buff)) return 0;
+    strpeek(buff);
     return 1;
 }
 
 // Why do I not comment at all in super fucking duper complicated functions? 
 
 
-
+// Dear spookinate from Discord: 
+// Prepare to be scared. I added a shell to the fucking kernel
+// HAHAHAHA I BROKE THE LAWS OF FUCKING KERNEL DEVELOPMENT
+// MIJAJAJAAFBFUIHJGFUIBFDUYFEUIYHFGFUYTEGFBIHDGFUE
 
 void kernel_main(void) __attribute__((noreturn, used));
 
