@@ -32,7 +32,7 @@ First off, you need:
 How to compile:
 - CD to your TOUR folder.
 - Run command: `make` to make GRUB-less version, `make grub` to make the GRUB version (in case you are not a psychopath and compile it yourself)
-- To run command, run `make run` (use `make makedisk`, then `make rundisk` to run with SATA R/W support). For deleting the OS IMG, ISO and the .o files, run `make clean`.
+- To run command, run `make run` / `make grubrun` (use `make makedisk`, then `make rundisk`/`make grub-rundisk` to run with SATA R/W support). For deleting the OS IMG, ISO and the .o files, run `make clean`.
 
 # Can TOUR run on real hardware?
 
