@@ -22,7 +22,7 @@ grub: tour.img kernel.elf boot/grub/grub.cfg
 	cp tour.img iso_grub/
 	cp kernel.elf iso_grub/kernel.elf
 	cp boot/grub/grub.cfg iso_grub/boot/grub/grub.cfg
-	grub-mkrescue -volid "TOUR (GRUB)" -o tour.iso iso_grub \
+	grub-mkrescue -volid "TOUR (GRUB)" -o tour-grub.iso iso_grub \
 		-eltorito-alt-boot -eltorito-platform x86 \
 		-b /tour.img -boot-load-size 4
 	rm -rf iso_grub
@@ -48,6 +48,9 @@ $(OBJ_DIR)/multiboot.o: multiboot.asm | $(OBJ_DIR)
 $(OBJ_DIR)/multiboot_c.o: multiboot.c | $(OBJ_DIR)
 	gcc $(CFLAGS) -fno-builtin multiboot.c -o $(OBJ_DIR)/multiboot_c.o
 
+$(OBJ_DIR)/bios.o: disk/bios.asm | $(OBJ_DIR) # Forgot why this is needed but i'll keep it
+	nasm -f elf32 disk/bios.asm -o $(OBJ_DIR)/bios.o
+
 boot.bin: boot.asm
 	nasm -f bin boot.asm -o boot.bin
 
@@ -67,10 +70,18 @@ clean:
 makedisk:
 	dd if=/dev/zero of=disk.img bs=1M count=512 && sfdisk disk.img <<< "label: dos" && sfdisk disk.img <<< ",,L,*" && mkfs.ext2 -F -E offset=1048576 disk.img
 
+grub-rundisk:
+	# Note: Please run after using make makedisk.
+	$(QEMU) -cpu 486 -m 4096K -cdrom tour-grub.iso -device ahci,id=ahci -drive format=raw,file=disk.img,if=none,id=sata_disk -device ide-hd,bus=ahci.0,drive=sata_disk -boot d
+
 rundisk: grub
 	# Note: Please run after using make makedisk.
 	$(QEMU) -cpu 486 -m 2096K -cdrom tour.iso -device ahci,id=ahci -drive format=raw,file=disk.img,if=none,id=sata_disk -device ide-hd,bus=ahci.0,drive=sata_disk -boot d
 
 run: grub
-	# Running without disk... Depressing
+	# Running without storij... Depressing
+	$(QEMU) -cpu 486 -m 2096K -cdrom tour.iso
+
+grubrun:
+	# Also running without fucking STORIJ... kill yourself user
 	$(QEMU) -cpu 486 -m 2096K -cdrom tour.iso
