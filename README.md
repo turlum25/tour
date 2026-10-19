@@ -34,6 +34,27 @@ How to compile:
 - Run command: `make` to make GRUB-less version, `make grub` to make the GRUB version (in case you are not a psychopath and compile it yourself)
 - To run command, run `make run` / `make grubrun` (use `make makedisk`, then `make rundisk`/`make grub-rundisk` to run with SATA R/W support). For deleting the OS IMG, ISO and the .o files, run `make clean`.
 
+# Commands
+
+```
+help                  - Displays the command and its usage
+
+ver                   - Shows version of OS (Obsolete)
+fetch                 - Shows detailed info about the computer (total RAM, usage, CPU)
+
+peek                  - Displays specific bytes of specific memory addresses in text (Usage : peek 0x[ADDRESS]) 
+poke                  - Edits specific bytes of specific memory addresses in text (Usage : poke 0x[ADDRESS] [VALUE])
+strpeek               - Displays sector bytes in text (512 bytes, same usage as peek)
+strpeek               - Edits sector bytes in text (512 bytes, same usage as poke)
+
+echo                  - Repeats text (usage: echo TEXT)
+time                  - Shows time since boot in seconds
+sleep                 - Wait for specific time
+clear                 - Clear screen
+
+reboot                - Reboot system (might shut down in certain VMs e.g VirtualBox)
+```
+
 # Can TOUR run on real hardware?
 
 Oh yes it can! TOUR runs really well in my laptop (Xiaomi Notebook Air 13.3 2016). If it can run on that, then it can run on *your* computer too!
