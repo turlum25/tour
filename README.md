@@ -2,8 +2,10 @@
 <p align="center">
   <img width="350" height="332.5" alt="Frame 15" src="https://github.com/user-attachments/assets/28257ebd-0480-4a95-a9fc-945c4d311126" />
 
-  
-  
+<p align="center">
+  Of course the code worsens your posture
+</p>
+
 # What is TOUR?
 TOUR (TOUR Offends UNIX Rules) is a lightweight OS made to run on QEMU (without GRUB) and real hardware, made on C and Assembly.
 
