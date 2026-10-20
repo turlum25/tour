@@ -1,9 +1,9 @@
 ; TOUR (TOUR Offends UNIX Rules) Bootloader
 ; By Turlum25, October 2026
-; Plz wen eta better bootloader? This is full of shit. I should have used OSDev guide. 
+; Plz wen eta better bootloader? This is full of trash. I should have used OSDev guide. 
 
 ; Please don't read this code. I swear.
-; You will try to bleach your eyes. Please. This bullshit looks like it was vibecoded
+; You will try to bleach your eyes. Please. This is probably vibecoded but i'm not telling you
 
 ; drtuihgfdhfkdjhfduiguidrhguifdhuirhg
 
