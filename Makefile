@@ -83,5 +83,6 @@ run: grub
 	$(QEMU) -cpu 486 -m 2096K -cdrom tour.iso
 
 grubrun:
-	# Also running without fucking STORIJ... kill yourself user
+	# Also running without STORIJ
+	# You should learn to appreciate computers
 	$(QEMU) -cpu 486 -m 2096K -cdrom tour.iso
