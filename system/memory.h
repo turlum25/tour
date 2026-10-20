@@ -4,13 +4,14 @@
 #include "kernel.h"
 
 extern uint64_t TotalRAM;
-extern uint64_t TakenRAM; // We're not gonna use you. Fuck you! Leaving you as-is to not recode this fucking function.
+extern uint64_t TakenRAM; // We're not gonna use you because yes
                           // Re: Nevermind.
 
 static inline void checkprintram(void) {
 
     // Bootloader kept RAM amount, taken amount riiight here.
-    // Let's take it! Colonise like fucking England. Hehe! But we're just reading it apparently
+    // Let's take it! Colonise like England. Hehe! But we're just reading it apparently
+    // OKay i admit it its vibecoded i give up
     volatile uint16_t *const boot_mem_ptr = (volatile uint16_t *)0x7E00;
     TotalRAM = (uint64_t)(*boot_mem_ptr);
 
