@@ -4,7 +4,7 @@ By Turlum25 , Added YNB beta
 
 Sometimes code needs to be written via hand
 
-Oct 16 2026: I WILL FUCKING KILL YOU DLS()
+Oct 16 2026: I WILL KILL YOU DLS()
              Re: I removed it. Peace at last
 
 Note from dev: 
@@ -29,7 +29,54 @@ Note from dev:
 
 
 
-            Gay.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+          Don't read this code. It's absolutely horrifying
 */
 
 #include "kernel.h"
@@ -41,7 +88,6 @@ Note from dev:
 
 #define DISK_IMPLEMENTATION
 #define SATA_IMPLEMENTATION
-#define EXT2_IMPLEMENTATION
 
 #include "disk/tmpfs.h"
 #include "disk/sata.h"
@@ -73,9 +119,9 @@ volatile uint16_t bios_probe_bx;
 char User[1024] = "NULL"; // Username. Default NULL
 char Host[1024] = "NULL"; // PC hostname. Default NULL
 
-// I SWEAR TO GOD I WILL SCREAM TOUR CAN PRINT ANY VARIABLE BUT THIS FOR SOME FUCKING REASON
-// static const char VERSION[8] = "0.03"; // TOUR VERSION. Don't change variable naem. We don't gotta be dumbasses, yk
-// I commented it. God i want some peace, and blame fucking God for making me rewrite.. printcol. MY BABY!! WAAAH
+// I SWEAR TO GOD I WILL SCREAM TOUR CAN PRINT ANY VARIABLE BUT THIS FOR SOME REASON
+// static const char VERSION[8] = "0.03"; // TOUR VERSION. Don't change variable naem. We don't gotta be dumb cavemen living under rocks, yk
+// I commented it. God i want some peace, and blame  God for making me rewrite.. printcol. MY BABY!! WAAAH
 // New version below.
 
 int VERSION(int COLOR) { // This will never \n
@@ -302,8 +348,8 @@ void fetch() {
     printcol("\n", VGA_COLOR_WHITE);
     
     uint32_t print_taken = (uint32_t)TakenRAM;
-    uint32_t print_total = (uint32_t)TotalRAM; /*TotalRAM always will print 640KB. That's what the fucking BIOS sees apparently.
-                                                 Really damn irritating. Hope some smartass fixes it.
+    uint32_t print_total = (uint32_t)TotalRAM; /*TotalRAM always will print 640KB. That's what the BIOS sees apparently.
+                                                 Really irritating. Hope some smart guy fixes it.
                                                  Re: Fixed. Meh.*/                                    
 
     printcolvar((uintptr_t)"RAM Taken    : ", 0, VGA_COLOR_WHITE);
@@ -320,11 +366,11 @@ void time() {
 }
 
 
-// TODO: Fix this shitty command. Doesnt work properly
+// TODO: Fix this ty command. Doesnt work properly
 //       TLDR: Disgrace, fix.
 // Re: TODO done, at least i think 
-//     Might still be one of, at least, the shittiest commands of this kernel ever. 
-//     I admit it: I have not tested this. I am full of shit just like roman bellic 
+//     Might still be one of, at least, the worst commands of this kernel ever. 
+//     I admit it: I have not tested this. I am full of garbage just like roman bellic 
 //                 Niko my cousin! Let's go for some bowling
 void snore() {
     // debug = 1; // EMABLE DEBUG FOR SLEEP ET CETERA
@@ -338,7 +384,7 @@ void snore() {
     input("Enter seconds to sleep : ", buff1, buff1 + 1024);
     int preseconds = parse_hex(buff1);
     int seconds = preseconds + 1; // Add 1 second to sleep. THen it'll be accurate to user input
-                                  // "Your honor i added an extra second to align with *fucking reality*"
+                                  // "Your honor i added an extra second to align with *literally reality*"
     sleep(seconds);
     if (debug == 1) {
         printcolvar((uint32_t)"[debug] buffer : ", 0, VGA_COLOR_YELLOW);
@@ -363,7 +409,7 @@ void snore() {
     }
     seconds = 0; // Clear seconds for next run
     preseconds = 0; // Also this. We shall not forget.
-    // debug = 0; // DISABLE DEBUG FOR OTHER SHIT
+    // debug = 0; // DISABLE DEBUG FOR OTHER.. i giv up
 }
 
 int reboot() { // We purposefully triple faulting CPU to reboot. Hehe!
@@ -396,7 +442,7 @@ Importan
 // Checks for username, etc etc.
 // Dev note: Dear me, this might worsen your posture
 //           And a neck beard
-//           Because handwritten code is always shit.
+//           Because handwritten code is always terrible
 int username() {
     printcol("[disk] Searching for user in disk\n", VGA_COLOR_WHITE);
     sleep(1);
@@ -497,7 +543,7 @@ int initproc() {
 
     username();
     /*
-    Yeah no need. username() at its duty since 1 am at fucking 20 october
+    Yeah no need. username() at its duty since 1 am at 20 october
     // Practically telling user to look for their names in the large bytes of ram. HAHAHAHAHAHA IM SO EVIL
     printcol("\n[warning] Username is currently stored in RAM as char 'User'.", VGA_COLOR_RED); 
     // Sir, I was late for work because I was looking for my username in TOUR's RAM
@@ -512,8 +558,8 @@ int initproc() {
 // End of initproc
 // Ok
 
-// Just too damn lazy to explain these two functions, read it, earn some IQ points (you probably have none)
-// In case you're a really big dumbass who doesn't know how to read C and use AI to use it:
+// Just too dang lazy to explain these two functions, read it, earn some IQ points (you probably have none)
+// In case you're a really big dumb caveman who doesn't know how to read C and use AI to use it:
 // strpeek absolutely sudo rm -fr /* your PC. 
 // strpoke totally haxxors the mainframe of your pentagon opsec levels and accesses the memory buffer of each FBI agent's terminal
 // Trust (/s)
@@ -527,7 +573,7 @@ static int parse_lba_silent(const char *buff, const char *cmd, uint32_t *lba, co
     if (!buff || !cmd || !lba) return 0;
     while (*cmd && *buff == *cmd) { cmd++; buff++; }
     if (*cmd == '\0' && *buff == '\0') {
-        *lba = 0u; // Fallback to safe baseline sector
+        *lba = 0u;
         if (args) *args = buff;
         return 1;  
     }
@@ -611,13 +657,18 @@ int strpoke(const char *buff) {
     return 1;
 }
 
-// Why do I not comment at all in super fucking duper complicated functions? 
+// Why do I not comment at all in super duper complicated functions? 
 
 
-// Dear spookinate from Discord: 
-// Prepare to be scared. I added a shell to the fucking kernel
-// HAHAHAHA I BROKE THE LAWS OF FUCKING KERNEL DEVELOPMENT
+// Dear random guy from Discord: 
+// Prepare to be scared. I added a shell to the  kernel
+// HAHAHAHA I BROKE THE LAWS OF GARBAGE KERNEL DEVELOPMENT
 // MIJAJAJAAFBFUIHJGFUIBFDUYFEUIYHFGFUYTEGFBIHDGFUE
+
+// But really why am i writing this code
+// Is garbage. Spageti
+// spaghet code 
+// sriuygeri7guk hkj 4hksh n4h vhf jjh n ngc j
 
 void kernel_main(void) __attribute__((noreturn, used));
 
