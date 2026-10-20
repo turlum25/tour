@@ -70,7 +70,8 @@ volatile uint16_t bios_probe_flags;
 volatile uint16_t bios_probe_bx;
 
 
-char User[1024]; // Username
+char User[1024] = "NULL"; // Username. Default NULL
+char Host[1024] = "NULL"; // PC hostname. Default NULL
 
 // I SWEAR TO GOD I WILL SCREAM TOUR CAN PRINT ANY VARIABLE BUT THIS FOR SOME FUCKING REASON
 // static const char VERSION[8] = "0.03"; // TOUR VERSION. Don't change variable naem. We don't gotta be dumbasses, yk
@@ -90,8 +91,13 @@ int VERSION(int COLOR) { // This will never \n
 static uint8_t mounted = 0;
 
 uint32_t CurrentTime = 0;
-#define str(str1, str2, output) (output = strings_match(str1, str2))
 
+
+char SeeData[1024]; // This is where strsee() returns its data to.
+
+
+
+#define str(str1, str2, output) (output = strings_match(str1, str2))
 
 uint32_t parse_hex(const char *str) {
     uint32_t val = 0;
@@ -108,6 +114,83 @@ uint32_t parse_hex(const char *str) {
     }
     return val;
 }
+
+
+
+int strsee(uint32_t sector_num) {
+    if (mounted == 0) { 
+        printcol("Disk is not mounted.\n", VGA_COLOR_RED); 
+        return 0; 
+    }
+
+    for (uint32_t i = 0; i < 1024; i++) {
+        SeeData[i] = '\0';
+    }
+
+    uint8_t raw_buffer[SATA_SECTOR_SIZE];
+    for (uint32_t i = 0; i < SATA_SECTOR_SIZE; i++) {
+        raw_buffer[i] = '\0';
+    }
+
+    if (!sata_read_sector(&primary_sata_master, sector_num, raw_buffer)) {
+        return 0;
+    }
+
+    uint8_t is_empty = 1;
+    for (uint32_t i = 0; i < SATA_SECTOR_SIZE; i++) {
+        if (raw_buffer[i] != '\0') {
+            is_empty = 0;
+            break;
+        }
+    }
+
+    if (is_empty) {
+        SeeData[0] = '\0'; 
+        return 1;
+    }
+
+    uint32_t out_idx = 0;
+    for (uint32_t i = 0; i < SATA_SECTOR_SIZE; i++) {
+        char c = (char)raw_buffer[i];
+        if (c >= 32 && c <= 126) {
+            SeeData[out_idx++] = c;
+        }
+    }
+    
+    SeeData[out_idx] = '\0';
+    return 1;
+}
+
+int strwrite(uint32_t sector_num, const char *data) {
+    if (mounted == 0) { 
+        printcol("Disk is not mounted.\n", VGA_COLOR_RED); 
+        return 0; 
+    }
+    if (!data || *data == '\0') {
+        return 0;
+    }
+
+    uint8_t sector_buff[SATA_SECTOR_SIZE];
+    for (uint32_t i = 0; i < SATA_SECTOR_SIZE; i++) {
+        sector_buff[i] = '\0';
+    }
+
+    uint32_t i = 0;
+    while (data[i] != '\0' && i < (SATA_SECTOR_SIZE - 1)) {
+        sector_buff[i] = (uint8_t)data[i];
+        i++;
+    }
+
+    if (!sata_write_sector(&primary_sata_master, sector_num, sector_buff)) {
+        return 0;
+    }
+
+    return strsee(sector_num);
+}
+
+
+
+
 
 // Commands.
 void ver() {
@@ -208,6 +291,8 @@ void fetch() {
     
     printcol("\n", VGA_COLOR_WHITE);
     printcolvar((uint32_t)User, 0, VGA_COLOR_GREEN);
+    printcol(" * ", VGA_COLOR_GREEN);
+    printcolvar((uint32_t)Host, 0, VGA_COLOR_GREEN);
     printcol("\n==============\n", VGA_COLOR_WHITE);
     printcolvar((uint32_t)"TOUR Version : ", 0, VGA_COLOR_GREEN);
     VERSION(VGA_COLOR_YELLOW);
@@ -297,6 +382,95 @@ int disableDebug() {
     debug = 0;
 }
 
+
+/*
+INITPROC
+This is initproc
+Veri good
+Helthi
+Importan
+*/
+
+
+// usernane()
+// Checks for username, etc etc.
+// Dev note: Dear me, this might worsen your posture
+//           And a neck beard
+//           Because handwritten code is always shit.
+int username() {
+    printcol("[disk] Searching for user in disk\n", VGA_COLOR_WHITE);
+    sleep(1);
+    char YNcache[10];
+    if (mounted == 0) {
+        printcol("[warning] Cannot search for username, SATA disk not mounted.", VGA_COLOR_RED);
+        sleep(1);
+        return 2;
+    }
+    // This checks whether username is in sector 10.
+    // If not, it asks for username. Then it writes to disk. Repeat
+    strsee(10); // Check for username
+    if(SeeData[0] == '\0' || SeeData[0] == '0') { // If strsee returns 0, that means nothing is in sector 10.
+        printcol("[warning] Username not found in disk (sector 10)\n", VGA_COLOR_RED);
+        input("Skip username? (Y/n) : ", YNcache, YNcache + 10);
+        if (YNcache[0] == 'Y' || YNcache[0] == 'y') { return 2; } // Exit if user wanna skip the username
+        else {
+            input("Enter username: ", User, User + 1024);
+            if (User[0] == '0') {
+                printcol("[error] You cannot set first character as 0.", VGA_COLOR_RED);
+                reboot();
+            }
+            strwrite(10, User);
+            strsee(10);
+        }
+    }
+    else {
+        printcol("Found username: ", VGA_COLOR_WHITE);
+        printcolvar((uint32_t)SeeData, 0, VGA_COLOR_YELLOW);
+        charis(User, SeeData);
+        printcol("\n", VGA_COLOR_WHITE);
+        return 1;
+    }
+}
+
+// hostname()
+// Just same thing as username, BUT checks for data in sector 9.
+// Practically useless'nt
+
+int hostname() {
+    printcol("[disk] Searching for hostname in disk\n", VGA_COLOR_WHITE);
+    sleep(1);
+    char yncache[10];
+        if (mounted == 0) {
+        printcol("[warning] Cannot search for hostname, SATA disk not mounted\n          Hostname will temporarily be set to NULL and not be saved.", VGA_COLOR_RED);
+        sleep(1);
+        return 2;
+    }
+    strsee(9); // Check for username in sector 9
+    if (SeeData[0] == '\0' || SeeData[0] == '0') { // Check if sector is empty or value is 0
+        printcol("[warning] Cannot find hostname in disk (sector 9)\n", VGA_COLOR_RED);
+        input("Skip hostname? (Y/n): ", yncache, yncache + 10);
+        if (yncache[0] == 'Y' || yncache[0] == 'y') {
+            printcol("[note] You are skipping your hostname, so your hostname will temporarily be set to NULL.\n      Unless you reboot, you will not be able to re-set your hostname", VGA_COLOR_YELLOW);
+        } else {
+            input("Enter hostname: ", Host, Host + 1024); 
+            if (Host[0] == '0') {
+                printcol("[error] You cannot set first character as 0.", VGA_COLOR_RED);
+                reboot();
+            }
+            strwrite(9, Host);
+            strsee(9);
+        }
+    }
+    else {
+        printcol("[disk] Found hostname: ", VGA_COLOR_GREEN);
+        printcolvar((uint32_t)SeeData, 0, VGA_COLOR_YELLOW);
+        charis(Host, SeeData);
+        printcol("\n", VGA_COLOR_WHITE);
+        return 1;
+    }
+}
+
+
 // Starts up username, disk drivers.
 
 int initproc() {
@@ -321,18 +495,22 @@ int initproc() {
         printcol("[warning] No mountable disks found.\n\n", VGA_COLOR_RED);
     }
 
-    input("Enter new username: ", User, User + 1024);
-    printcolvar((uint32_t)"Your username is ", 0, VGA_COLOR_GREEN);
-    printcolvar((uint32_t)User, 0, VGA_COLOR_GREEN);
-
+    username();
+    /*
+    Yeah no need. username() at its duty since 1 am at fucking 20 october
     // Practically telling user to look for their names in the large bytes of ram. HAHAHAHAHAHA IM SO EVIL
     printcol("\n[warning] Username is currently stored in RAM as char 'User'.", VGA_COLOR_RED); 
     // Sir, I was late for work because I was looking for my username in TOUR's RAM
+    */
+    hostname();
 
 
     return 0;
 }
 
+
+// End of initproc
+// Ok
 
 // Just too damn lazy to explain these two functions, read it, earn some IQ points (you probably have none)
 // In case you're a really big dumbass who doesn't know how to read C and use AI to use it:
@@ -393,7 +571,6 @@ int strpeek(const char *buff) {
 
     for (uint32_t i = 0; i < STR_SECTOR_SIZE; i++) ReadStorage[i] = '\0';
     if (!sata_read_sector(&primary_sata_master, lba, (uint8_t *)ReadStorage)) return 0;
-
     char out_str[2] = { '\0', '\0' };
     
     for (uint32_t i = 0; i < STR_SECTOR_SIZE; i++) {
