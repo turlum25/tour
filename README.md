@@ -13,6 +13,7 @@ This operating system was made to be modular but it's basically spaghetti code t
 
 - Read and wteri SATA disk sectors
 - Detect total RAM and how much RAM is taken
+- Detect and write username and hostname in disk (Username: sector 10, hostname: sector 9)
 - Look cool and haxxor moed
 
 # Minimum specs to run TOUR
