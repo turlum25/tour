@@ -85,9 +85,11 @@ Note from dev:
 #include "system/detect.h"
 #include "system/memory.h"
 #include "system/time.h"
+#include "system/control.h"
 
 #define DISK_IMPLEMENTATION
 #define SATA_IMPLEMENTATION
+#define EXT2_IMPLEMENTATION
 
 #include "disk/tmpfs.h"
 #include "disk/sata.h"
@@ -119,15 +121,15 @@ volatile uint16_t bios_probe_bx;
 char User[1024] = "NULL"; // Username. Default NULL
 char Host[1024] = "NULL"; // PC hostname. Default NULL
 
-// I SWEAR TO GOD I WILL SCREAM TOUR CAN PRINT ANY VARIABLE BUT THIS FOR SOME REASON
-// static const char VERSION[8] = "0.03"; // TOUR VERSION. Don't change variable naem. We don't gotta be dumb cavemen living under rocks, yk
-// I commented it. God i want some peace, and blame  God for making me rewrite.. printcol. MY BABY!! WAAAH
+// I SWEAR TO GOD I WILL SCREAM TOUR CAN PRINT ANY VARIABLE BUT THIS FOR SOME FUCKING REASON
+// static const char VERSION[8] = "0.03"; // TOUR VERSION. Don't change variable naem. We don't gotta be dumbasses, yk
+// I commented it. God i want some peace, and blame fucking God for making me rewrite.. printcol. MY BABY!! WAAAH
 // New version below.
 
 int VERSION(int COLOR) { // This will never \n
     // Notes: This int just prints the version. Mod however you like, forkers 
     //        COLOR defines the color you wanna put. 
-    printcol("0.04", COLOR);
+    printcol("0.05b1", COLOR);
 }
 
 
@@ -267,6 +269,8 @@ void help() {
     printcol("sleep   - wait specific time\n", VGA_COLOR_WHITE);
     printcol("strpeek - read specific sector in SSD\n", VGA_COLOR_WHITE);
     printcol("strpoke - write specific sector in SSD\n", VGA_COLOR_WHITE);
+    printcol("panic   - debug - panic host with return 123\n", VGA_COLOR_WHITE);
+    printcol("regdump - dump registers of host\n", VGA_COLOR_WHITE);
     printcol("reboot  - reboot computer\n", VGA_COLOR_WHITE);
 }
 void echo(const char *buffer) {
@@ -348,8 +352,8 @@ void fetch() {
     printcol("\n", VGA_COLOR_WHITE);
     
     uint32_t print_taken = (uint32_t)TakenRAM;
-    uint32_t print_total = (uint32_t)TotalRAM; /*TotalRAM always will print 640KB. That's what the BIOS sees apparently.
-                                                 Really irritating. Hope some smart guy fixes it.
+    uint32_t print_total = (uint32_t)TotalRAM; /*TotalRAM always will print 640KB. That's what the fucking BIOS sees apparently.
+                                                 Really damn irritating. Hope some smartass fixes it.
                                                  Re: Fixed. Meh.*/                                    
 
     printcolvar((uintptr_t)"RAM Taken    : ", 0, VGA_COLOR_WHITE);
@@ -366,11 +370,11 @@ void time() {
 }
 
 
-// TODO: Fix this ty command. Doesnt work properly
+// TODO: Fix this shitty command. Doesnt work properly
 //       TLDR: Disgrace, fix.
 // Re: TODO done, at least i think 
-//     Might still be one of, at least, the worst commands of this kernel ever. 
-//     I admit it: I have not tested this. I am full of garbage just like roman bellic 
+//     Might still be one of, at least, the shittiest commands of this kernel ever. 
+//     I admit it: I have not tested this. I am full of shit just like roman bellic 
 //                 Niko my cousin! Let's go for some bowling
 void snore() {
     // debug = 1; // EMABLE DEBUG FOR SLEEP ET CETERA
@@ -384,7 +388,7 @@ void snore() {
     input("Enter seconds to sleep : ", buff1, buff1 + 1024);
     int preseconds = parse_hex(buff1);
     int seconds = preseconds + 1; // Add 1 second to sleep. THen it'll be accurate to user input
-                                  // "Your honor i added an extra second to align with *literally reality*"
+                                  // "Your honor i added an extra second to align with *fucking reality*"
     sleep(seconds);
     if (debug == 1) {
         printcolvar((uint32_t)"[debug] buffer : ", 0, VGA_COLOR_YELLOW);
@@ -409,17 +413,13 @@ void snore() {
     }
     seconds = 0; // Clear seconds for next run
     preseconds = 0; // Also this. We shall not forget.
-    // debug = 0; // DISABLE DEBUG FOR OTHER.. i giv up
+    // debug = 0; // DISABLE DEBUG FOR OTHER SHIT
 }
 
-int reboot() { // We purposefully triple faulting CPU to reboot. Hehe!
-    volatile uint16_t zero_idt[3] = {0, 0, 0};
-    __asm__ volatile ("lidt %0" : : "m"(zero_idt));
-    __asm__ volatile ("int $3");
-    while (1) {
-        __asm__ volatile ("hlt");
-    }
-}
+/*  10/26/2026
+    Removed reboot() from main.c to system/control.h
+    Added panic, DumpRegister too.
+*/
 
 int enableDebug() {
     debug = 1;
@@ -442,7 +442,7 @@ Importan
 // Checks for username, etc etc.
 // Dev note: Dear me, this might worsen your posture
 //           And a neck beard
-//           Because handwritten code is always terrible
+//           Because handwritten code is always shit.
 int username() {
     printcol("[disk] Searching for user in disk\n", VGA_COLOR_WHITE);
     sleep(1);
@@ -470,7 +470,7 @@ int username() {
         }
     }
     else {
-        printcol("Found username: ", VGA_COLOR_WHITE);
+        printcol("[disk] Found username: ", VGA_COLOR_GREEN);
         printcolvar((uint32_t)SeeData, 0, VGA_COLOR_YELLOW);
         charis(User, SeeData);
         printcol("\n", VGA_COLOR_WHITE);
@@ -496,7 +496,7 @@ int hostname() {
         printcol("[warning] Cannot find hostname in disk (sector 9)\n", VGA_COLOR_RED);
         input("Skip hostname? (Y/n): ", yncache, yncache + 10);
         if (yncache[0] == 'Y' || yncache[0] == 'y') {
-            printcol("[note] You are skipping your hostname, so your hostname will temporarily be set to NULL.\n      Unless you reboot, you will not be able to re-set your hostname", VGA_COLOR_YELLOW);
+            printcol("[note] Skipping hostname will temporarily be set to NULL.\n       Unless you reboot, you will not be able to re-set your hostname", VGA_COLOR_YELLOW);
         } else {
             input("Enter hostname: ", Host, Host + 1024); 
             if (Host[0] == '0') {
@@ -543,7 +543,7 @@ int initproc() {
 
     username();
     /*
-    Yeah no need. username() at its duty since 1 am at 20 october
+    Yeah no need. username() at its duty since 1 am at fucking 20 october
     // Practically telling user to look for their names in the large bytes of ram. HAHAHAHAHAHA IM SO EVIL
     printcol("\n[warning] Username is currently stored in RAM as char 'User'.", VGA_COLOR_RED); 
     // Sir, I was late for work because I was looking for my username in TOUR's RAM
@@ -558,8 +558,8 @@ int initproc() {
 // End of initproc
 // Ok
 
-// Just too dang lazy to explain these two functions, read it, earn some IQ points (you probably have none)
-// In case you're a really big dumb caveman who doesn't know how to read C and use AI to use it:
+// Just too damn lazy to explain these two functions, read it, earn some IQ points (you probably have none)
+// In case you're a really big dumbass who doesn't know how to read C and use AI to use it:
 // strpeek absolutely sudo rm -fr /* your PC. 
 // strpoke totally haxxors the mainframe of your pentagon opsec levels and accesses the memory buffer of each FBI agent's terminal
 // Trust (/s)
@@ -573,7 +573,7 @@ static int parse_lba_silent(const char *buff, const char *cmd, uint32_t *lba, co
     if (!buff || !cmd || !lba) return 0;
     while (*cmd && *buff == *cmd) { cmd++; buff++; }
     if (*cmd == '\0' && *buff == '\0') {
-        *lba = 0u;
+        *lba = 0u; // Fallback to safe baseline sector
         if (args) *args = buff;
         return 1;  
     }
@@ -657,18 +657,13 @@ int strpoke(const char *buff) {
     return 1;
 }
 
-// Why do I not comment at all in super duper complicated functions? 
+// Why do I not comment at all in super fucking duper complicated functions? 
 
 
-// Dear random guy from Discord: 
-// Prepare to be scared. I added a shell to the  kernel
-// HAHAHAHA I BROKE THE LAWS OF GARBAGE KERNEL DEVELOPMENT
+// Dear spookinate from Discord: 
+// Prepare to be scared. I added a shell to the fucking kernel
+// HAHAHAHA I BROKE THE LAWS OF FUCKING KERNEL DEVELOPMENT
 // MIJAJAJAAFBFUIHJGFUIBFDUYFEUIYHFGFUYTEGFBIHDGFUE
-
-// But really why am i writing this code
-// Is garbage. Spageti
-// spaghet code 
-// sriuygeri7guk hkj 4hksh n4h vhf jjh n ngc j
 
 void kernel_main(void) __attribute__((noreturn, used));
 
@@ -703,6 +698,8 @@ void kernel_main(void) {
     static uint8_t ENABLEDEBUG = 0;
     static uint8_t DISABLEDEBUG = 0;
     static uint8_t REBOOT = 0;
+    static uint8_t TSTPNC = 0;
+    static uint8_t REGDUMP = 0;
 
     
     initproc();
@@ -726,6 +723,8 @@ void kernel_main(void) {
         str(buff, "reboot", REBOOT);
         STRPEEK = StringPrefixMatch(buff, "strpeek ");
         STRPOKE = StringPrefixMatch(buff, "strpoke ");
+        str(buff, "panic", TSTPNC);
+        str(buff, "regdump", REGDUMP);
 
         if (HELP != 0) { help(); }
         else if (VER != 0) { ver(); }
@@ -741,6 +740,8 @@ void kernel_main(void) {
         else if (REBOOT != 0) { reboot(); }
         else if (STRPEEK != 0) { strpeek(buff); }
         else if (STRPOKE != 0) { strpoke(buff); }
+        else if (TSTPNC != 0) { panic("Debug panic", 123); }
+        else if (REGDUMP != 0) { DumpRegisters(); }
         else { 
             printcolvar((uint32_t)"Incorrect command: ", 0, VGA_COLOR_RED);
             printcolvar((uint32_t)buff, 0, VGA_COLOR_RED);
@@ -760,7 +761,7 @@ void kernel_main(void) {
         STRPEEK = 0;
         STRPOKE = 0;
         // REBOOT = 0; Not needed. This value resets back to 0 after reboot.
-        
+        // TSTPNC not needed.
         
         if (cursor_pos != 0) {
             printcol("\n", VGA_COLOR_WHITE);
