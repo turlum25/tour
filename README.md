@@ -56,6 +56,15 @@ sleep                 - Wait for specific time
 clear                 - Clear screen
 
 reboot                - Reboot system (might shut down in certain VMs e.g VirtualBox)
+
+```
+
+There are some more debug commands:
+```
+enabledebug          - Enables int debug in kernel into 1. Not mentioned in help
+disabledebug         - Disables int debug in kernel into 0. Not mentioned in help
+panic                - Purposefully panics your system (Added 0.05b1)
+regdump              - Dumps host computer's registers
 ```
 
 # Can TOUR run on real hardware?
