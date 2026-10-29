@@ -24,10 +24,180 @@ int reboot() {
     }
 }
 
-
 // This, that, and DumpRegister
 // vibecoded. utter garbage
 // But meh rest coded myself at least
+typedef struct __attribute__((packed)) {
+    uint16_t offset_low;
+    uint16_t selector;
+    uint8_t reserved;
+    uint8_t attributes;
+    uint16_t offset_high;
+} control_idt_gate_t;
+
+typedef struct __attribute__((packed)) {
+    uint16_t limit;
+    uint32_t base;
+} control_idtr_t;
+
+static control_idt_gate_t control_idt[256];
+void panic(const char *reason, int retnum);
+
+static void control_set_idt_gate(uint8_t vector, void (*handler)(void), uint16_t selector) {
+    uintptr_t address = (uintptr_t)handler;
+    control_idt[vector].offset_low = (uint16_t)address;
+    control_idt[vector].selector = selector;
+    control_idt[vector].reserved = 0;
+    control_idt[vector].attributes = 0x8E;
+    control_idt[vector].offset_high = (uint16_t)(address >> 16);
+}
+
+static void control_exception_panic(uint32_t vector, uint32_t error_code) {
+    printcol("[fault] CPU exception ", VGA_COLOR_RED);
+    printcolvar(vector, 1, VGA_COLOR_RED);
+    printcol(" error code ", VGA_COLOR_RED);
+    printcolvar(error_code, 1, VGA_COLOR_RED);
+    printcol("\n", VGA_COLOR_RED);
+    panic("Unhandled CPU exception", (int)vector);
+}
+
+__asm__(
+    ".text\n"
+    ".global control_isr_common\n"
+    "control_isr_common:\n"
+    "cld\n"
+    "pushal\n"
+    "movl 32(%esp), %eax\n"
+    "movl 36(%esp), %edx\n"
+    "pushl %edx\n"
+    "pushl %eax\n"
+    "call control_exception_panic\n"
+    "1: cli\n"
+    "hlt\n"
+    "jmp 1b\n"
+);
+
+#define CONTROL_ISR_NO_ERROR(vector) \
+    __asm__(".global control_isr_" #vector "\n" \
+            "control_isr_" #vector ":\n" \
+            "pushl $0\n" \
+            "pushl $" #vector "\n" \
+            "jmp control_isr_common\n")
+
+#define CONTROL_ISR_ERROR(vector) \
+    __asm__(".global control_isr_" #vector "\n" \
+            "control_isr_" #vector ":\n" \
+            "pushl $" #vector "\n" \
+            "jmp control_isr_common\n")
+
+CONTROL_ISR_NO_ERROR(0);
+CONTROL_ISR_NO_ERROR(1);
+CONTROL_ISR_NO_ERROR(2);
+CONTROL_ISR_NO_ERROR(3);
+CONTROL_ISR_NO_ERROR(4);
+CONTROL_ISR_NO_ERROR(5);
+CONTROL_ISR_NO_ERROR(6);
+CONTROL_ISR_NO_ERROR(7);
+CONTROL_ISR_ERROR(8);
+CONTROL_ISR_NO_ERROR(9);
+CONTROL_ISR_ERROR(10);
+CONTROL_ISR_ERROR(11);
+CONTROL_ISR_ERROR(12);
+CONTROL_ISR_ERROR(13);
+CONTROL_ISR_ERROR(14);
+CONTROL_ISR_NO_ERROR(15);
+CONTROL_ISR_NO_ERROR(16);
+CONTROL_ISR_ERROR(17);
+CONTROL_ISR_NO_ERROR(18);
+CONTROL_ISR_NO_ERROR(19);
+CONTROL_ISR_NO_ERROR(20);
+CONTROL_ISR_ERROR(21);
+CONTROL_ISR_NO_ERROR(22);
+CONTROL_ISR_NO_ERROR(23);
+CONTROL_ISR_NO_ERROR(24);
+CONTROL_ISR_NO_ERROR(25);
+CONTROL_ISR_NO_ERROR(26);
+CONTROL_ISR_NO_ERROR(27);
+CONTROL_ISR_NO_ERROR(28);
+CONTROL_ISR_ERROR(29);
+CONTROL_ISR_ERROR(30);
+CONTROL_ISR_NO_ERROR(31);
+
+__asm__(
+    ".global control_isr_default\n"
+    "control_isr_default:\n"
+    "pushl $0\n"
+    "pushl $255\n"
+    "jmp control_isr_common\n"
+);
+
+#define CONTROL_DECLARE_ISR(vector) extern void control_isr_##vector(void)
+CONTROL_DECLARE_ISR(0);
+CONTROL_DECLARE_ISR(1);
+CONTROL_DECLARE_ISR(2);
+CONTROL_DECLARE_ISR(3);
+CONTROL_DECLARE_ISR(4);
+CONTROL_DECLARE_ISR(5);
+CONTROL_DECLARE_ISR(6);
+CONTROL_DECLARE_ISR(7);
+CONTROL_DECLARE_ISR(8);
+CONTROL_DECLARE_ISR(9);
+CONTROL_DECLARE_ISR(10);
+CONTROL_DECLARE_ISR(11);
+CONTROL_DECLARE_ISR(12);
+CONTROL_DECLARE_ISR(13);
+CONTROL_DECLARE_ISR(14);
+CONTROL_DECLARE_ISR(15);
+CONTROL_DECLARE_ISR(16);
+CONTROL_DECLARE_ISR(17);
+CONTROL_DECLARE_ISR(18);
+CONTROL_DECLARE_ISR(19);
+CONTROL_DECLARE_ISR(20);
+CONTROL_DECLARE_ISR(21);
+CONTROL_DECLARE_ISR(22);
+CONTROL_DECLARE_ISR(23);
+CONTROL_DECLARE_ISR(24);
+CONTROL_DECLARE_ISR(25);
+CONTROL_DECLARE_ISR(26);
+CONTROL_DECLARE_ISR(27);
+CONTROL_DECLARE_ISR(28);
+CONTROL_DECLARE_ISR(29);
+CONTROL_DECLARE_ISR(30);
+CONTROL_DECLARE_ISR(31);
+extern void control_isr_default(void);
+
+static void (*const control_exception_isrs[32])(void) = {
+    control_isr_0, control_isr_1, control_isr_2, control_isr_3,
+    control_isr_4, control_isr_5, control_isr_6, control_isr_7,
+    control_isr_8, control_isr_9, control_isr_10, control_isr_11,
+    control_isr_12, control_isr_13, control_isr_14, control_isr_15,
+    control_isr_16, control_isr_17, control_isr_18, control_isr_19,
+    control_isr_20, control_isr_21, control_isr_22, control_isr_23,
+    control_isr_24, control_isr_25, control_isr_26, control_isr_27,
+    control_isr_28, control_isr_29, control_isr_30, control_isr_31
+};
+
+static inline void autopanic(void) {
+    uint16_t code_segment;
+    __asm__ volatile ("mov %%cs, %0" : "=r"(code_segment));
+
+    for (unsigned vector = 0; vector < 256; ++vector) {
+        control_set_idt_gate((uint8_t)vector, control_isr_default, code_segment);
+    }
+    for (unsigned vector = 0; vector < 32; ++vector) {
+        control_set_idt_gate((uint8_t)vector, control_exception_isrs[vector], code_segment);
+    }
+
+    control_idtr_t idtr = {
+        .limit = (uint16_t)(sizeof(control_idt) - 1),
+        .base = (uint32_t)(uintptr_t)control_idt
+    };
+    __asm__ volatile ("lidt %0" : : "m"(idtr));
+}
+
+#undef CONTROL_DECLARE_ISR
+#undef CONTROL_ISR_ERROR
+#undef CONTROL_ISR_NO_ERROR
 
 typedef struct {
     uint32_t edi, esi, ebp, esp;
@@ -91,7 +261,7 @@ void panic(const char *reason, int retnum) {
     printcol("\n[panic] Halting computer.\n", VGA_COLOR_RED);
     
     __asm__ volatile ("cli");
-    for (;;) {
+    while (1) {
         __asm__ volatile ("hlt");
     }
 }
