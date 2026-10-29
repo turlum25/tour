@@ -4,7 +4,7 @@ By Turlum25 , Added YNB beta
 
 Sometimes code needs to be written via hand
 
-Oct 16 2026: I WILL KILL YOU DLS()
+Oct 16 2026: I WILL FUCKING KILL YOU DLS()
              Re: I removed it. Peace at last
 
 Note from dev: 
@@ -29,55 +29,11 @@ Note from dev:
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-          Don't read this code. It's absolutely horrifying
+            Gay.
 */
+
+// Dear GOD, why is main.c so simple yet 1,000 lines?
+
 
 #include "kernel.h"
 #include "keyboard.h"
@@ -93,8 +49,9 @@ Note from dev:
 
 #include "disk/tmpfs.h"
 #include "disk/sata.h"
+#include "disk/ttfs.h"
 
-// Vowed myself to not add this. Had to add this too.
+// Vowed myself to not add this. Had to add this thoguh.
 #include <stdint.h>
 #include <stddef.h>
 
@@ -129,7 +86,7 @@ char Host[1024] = "NULL"; // PC hostname. Default NULL
 int VERSION(int COLOR) { // This will never \n
     // Notes: This int just prints the version. Mod however you like, forkers 
     //        COLOR defines the color you wanna put. 
-    printcol("0.05b1", COLOR);
+    printcol("0.05", COLOR);
 }
 
 
@@ -269,6 +226,9 @@ void help() {
     printcol("sleep   - wait specific time\n", VGA_COLOR_WHITE);
     printcol("strpeek - read specific sector in SSD\n", VGA_COLOR_WHITE);
     printcol("strpoke - write specific sector in SSD\n", VGA_COLOR_WHITE);
+    printcol("read    - print a file from TTFS\n", VGA_COLOR_WHITE);
+    printcol("list    - list folders/files, list [-a] [-l] [path]\n", VGA_COLOR_WHITE);
+    printcol("chdir   - change directory, cd [path]\n", VGA_COLOR_WHITE);
     printcol("panic   - debug - panic host with return 123\n", VGA_COLOR_WHITE);
     printcol("regdump - dump registers of host\n", VGA_COLOR_WHITE);
     printcol("reboot  - reboot computer\n", VGA_COLOR_WHITE);
@@ -431,7 +391,7 @@ int disableDebug() {
 
 /*
 INITPROC
-This is initproc
+This is initproc section
 Veri good
 Helthi
 Importan
@@ -516,10 +476,29 @@ int hostname() {
     }
 }
 
+int fileinit() {
+    if (!mounted) {
+        return 2;
+    }
+    static const uint8_t initdata[] = "STRING\n";
+    printcol("\n[ttfs] Initialising filesystem\n", VGA_COLOR_WHITE); // SHitty filesystem you mean
+    if (fsinit() == 1) { printcol("[ttfs] Filesystem initialised successfully\n", VGA_COLOR_GREEN); }
+    else { printcol("[error] Filesystem cannot initialise.\n", VGA_COLOR_RED); } // Figure it out yourself
+    // debug = 1;
+    
+    if (debug == 1) {
+        fswrite("sys/testFile", initdata, sizeof(initdata));
+        fswrite("test/testFile", (const uint8_t *)"helloWorld! This is file reading in TOUR", 5);
+    } // I AM CRYING WHY DOES THIS CAUSE A REBOOT LOOP
+      // Re: fixed
+    debug = 0;
+}
+
 
 // Starts up username, disk drivers.
 
 int initproc() {
+    autopanic();
     printcol("\n\nTOUR, by Turlum25, September, October 2026\n", VGA_COLOR_GREEN);
     printcolvar((uint32_t)"Version detected: ", 0, VGA_COLOR_GREEN);
     VERSION(VGA_COLOR_YELLOW);
@@ -549,6 +528,7 @@ int initproc() {
     // Sir, I was late for work because I was looking for my username in TOUR's RAM
     */
     hostname();
+    fileinit();
 
 
     return 0;
@@ -657,6 +637,297 @@ int strpoke(const char *buff) {
     return 1;
 }
 
+
+static char current_directory[TTFS_FILENAME_SIZE];
+static ttfs_dirent_t shell_directory_entries[256];
+
+static int shell_next_token(const char **cursor, char *token, uint32_t capacity) {
+    while (**cursor == ' ' || **cursor == '\t') {
+        ++*cursor;
+    }
+    if (**cursor == '\0') {
+        return 0;
+    }
+
+    uint32_t length = 0;
+    int too_long = 0;
+    while (**cursor && **cursor != ' ' && **cursor != '\t') {
+        if (length + 1u < capacity) {
+            token[length++] = **cursor;
+        } else {
+            too_long = 1;
+        }
+        ++*cursor;
+    }
+    token[length] = '\0';
+    return too_long ? -1 : 1;
+}
+
+static int shell_resolve_path(const char *path, char resolved[TTFS_FILENAME_SIZE]) {
+    uint32_t length = 0;
+    if (path[0] != '/') {
+        while (current_directory[length]) {
+            resolved[length] = current_directory[length];
+            ++length;
+        }
+    }
+    resolved[length] = '\0';
+
+    while (*path) {
+        while (*path == '/') {
+            ++path;
+        }
+        if (!*path) {
+            break;
+        }
+
+        char component[TTFS_FILENAME_SIZE];
+        uint32_t component_length = 0;
+        while (*path && *path != '/') {
+            if (component_length + 1u >= sizeof(component)) {
+                return 0;
+            }
+            component[component_length++] = *path++;
+        }
+        component[component_length] = '\0';
+
+        if (component_length == 1 && component[0] == '.') {
+            continue;
+        }
+        if (component_length == 2 && component[0] == '.' &&
+            component[1] == '.') {
+            if (length) {
+                while (length && resolved[length - 1u] != '/') {
+                    --length;
+                }
+                if (length) {
+                    --length;
+                }
+                resolved[length] = '\0';
+            }
+            continue;
+        }
+
+        uint32_t separator = length ? 1u : 0u;
+        if (length + separator + component_length >= TTFS_FILENAME_SIZE) {
+            return 0;
+        }
+        if (separator) {
+            resolved[length++] = '/';
+        }
+        for (uint32_t i = 0; i < component_length; ++i) {
+            resolved[length++] = component[i];
+        }
+        resolved[length] = '\0';
+    }
+    return 1;
+}
+
+static int shell_parse_list_flags(const char *token, uint8_t *show_hidden,
+                                  uint8_t *long_format) {
+    if (token[0] != '-') {
+        return 0;
+    }
+    if (strings_match(token, "--")) {
+        return 2;
+    }
+    if (strings_match(token, "--all")) {
+        *show_hidden = 1;
+        return 1;
+    }
+    if (strings_match(token, "--long")) {
+        *long_format = 1;
+        return 1;
+    }
+    for (uint32_t i = 1; token[i]; ++i) {
+        if (token[i] == 'a') {
+            *show_hidden = 1;
+        } else if (token[i] == 'l') {
+            *long_format = 1;
+        } else {
+            return -1;
+        }
+    }
+    return 1;
+}
+
+
+
+
+// list command!
+void list(const char *command) {
+    if (!mounted || !fsready()) {
+        printcol("Disk/filesystem not ready\n", VGA_COLOR_RED);
+        return;
+    }
+
+    const char *cursor = command + (command[0] == 'l' && command[1] == 's' ? 2 : 4);
+    char token[TTFS_FILENAME_SIZE];
+    char directory[TTFS_FILENAME_SIZE];
+    uint8_t show_hidden = 0;
+    uint8_t long_format = 0;
+    uint8_t options_done = 0;
+    uint8_t have_path = 0;
+ 
+    for (;;) {
+        int token_result = shell_next_token(&cursor, token, sizeof(token));
+        if (token_result == 0) {
+            break;
+        }
+        if (token_result < 0) {
+            printcol("Argument too long\n", VGA_COLOR_RED);
+            return;
+        }
+        int flag_result = options_done ? 0 :
+            shell_parse_list_flags(token, &show_hidden, &long_format);
+        if (flag_result < 0) {
+            printcol("Usage: list [-a] [-l] [path]\n", VGA_COLOR_YELLOW);
+            return;
+        }
+        if (flag_result == 1) {
+            continue;
+        }
+        if (flag_result == 2) {
+            options_done = 1;
+            continue;
+        }
+        if (have_path) {
+            printcol("Usage: list [-a] [-l] [path]\n", VGA_COLOR_YELLOW);
+            return;
+        }
+        if (!shell_resolve_path(token, directory)) {
+            printcol("Pathtoo long\n", VGA_COLOR_RED);
+            return;
+        }
+        have_path = 1;
+    }
+    if (!have_path) {
+        uint32_t i = 0;
+        while (current_directory[i]) {
+            directory[i] = current_directory[i];
+            ++i;
+        }
+        directory[i] = '\0';
+    }
+
+    uint32_t entry_count = 0;
+    if (!fslist_dir(directory, shell_directory_entries,
+                    sizeof(shell_directory_entries) /
+                        sizeof(shell_directory_entries[0]),
+                    &entry_count)) {
+        printcol(entry_count > sizeof(shell_directory_entries) /
+                                   sizeof(shell_directory_entries[0])
+                     ? "Directory has too many entries\n"
+                     : "Couldnt list directory\n",
+                 VGA_COLOR_RED);
+        return;
+    }
+
+    uint32_t shown = 0;
+    for (uint32_t i = 0; i < entry_count; ++i) {
+        ttfs_dirent_t *entry = &shell_directory_entries[i];
+        if (!show_hidden && entry->name[0] == '.') {
+            continue;
+        }
+        printcol(entry->name, entry->is_directory ? VGA_COLOR_GREEN : VGA_COLOR_WHITE);
+        if (entry->is_directory) {
+            printcol("/", VGA_COLOR_GREEN);
+        } else if (long_format) {
+            printcol("  ", VGA_COLOR_WHITE);
+            printcolvar(entry->size, 1, VGA_COLOR_YELLOW);
+        }
+        printcol("\n", VGA_COLOR_WHITE);
+        ++shown;
+    }
+    if (shown == 0) {
+        printcol("Directory is empty\n", VGA_COLOR_YELLOW);
+    }
+}
+
+// chdir.
+void chdir(const char *command) {
+    const char *path = command + 5;
+
+    while (*path == ' ' || *path == '\t') {
+        ++path;
+    }
+
+    char token[TTFS_FILENAME_SIZE];
+    char resolved[TTFS_FILENAME_SIZE];
+
+    if (!*path) {
+        path = "/";
+    }
+
+    const char *cursor = path;
+
+    if (shell_next_token(&cursor, token, sizeof(token)) != 1) {
+        printcol("Usage: chdir [directory]\n", VGA_COLOR_YELLOW);
+        return;
+    }
+
+    while (*cursor == ' ' || *cursor == '\t') {
+        ++cursor;
+    }
+
+    if (*cursor != '\0') {
+        printcol("Usage: chdir [directory] (Too many arguments)\n",
+                 VGA_COLOR_YELLOW);
+        return;
+    }
+
+    if (!shell_resolve_path(token, resolved)) {
+        printcol("Path too long\n", VGA_COLOR_RED);
+        return;
+    }
+
+    if (!mounted || !fsready() || !fsdir_exists(resolved)) {
+        printcol("Directory not found\n", VGA_COLOR_RED);
+        return;
+    }
+
+    uint32_t i = 0;
+    while (resolved[i] && i < TTFS_FILENAME_SIZE - 1) {
+        current_directory[i] = resolved[i];
+        ++i;
+    }
+    current_directory[i] = '\0';
+}
+
+static int readprintchnk(const uint8_t *data, uint32_t size, void *context) {
+    (void)context;
+    for (uint32_t i = 0; i < size; ++i) {
+        if (data[i] != '\0') {
+            put_char((char)data[i], VGA_COLOR_WHITE);
+        }
+    }
+    return 1;
+}
+
+void readFile(const char *command) {
+    const char *cursor = command + 4;
+    char filename[TTFS_FILENAME_SIZE];
+    if (shell_next_token(&cursor, filename, sizeof(filename)) != 1 ||
+        shell_next_token(&cursor, filename, sizeof(filename)) != 0) {
+        printcol("Usage: read <filename>\n", VGA_COLOR_YELLOW);
+        return;
+    }
+
+    if (!mounted || !fsready()) {
+        printcol("Disk/filesystem is not ready\n", VGA_COLOR_RED);
+        return;
+    }
+    char resolved[TTFS_FILENAME_SIZE];
+    if (!shell_resolve_path(filename, resolved) || !ttfs_valid_name(resolved)) {
+        printcol("Invalid/overlong path\n", VGA_COLOR_RED);
+        return;
+    }
+    if (!fsread_stream(resolved, readprintchnk, NULL)) {
+        printcol("Couldnt read file\n", VGA_COLOR_RED);
+    }
+}
+
+
 // Why do I not comment at all in super fucking duper complicated functions? 
 
 
@@ -700,6 +971,9 @@ void kernel_main(void) {
     static uint8_t REBOOT = 0;
     static uint8_t TSTPNC = 0;
     static uint8_t REGDUMP = 0;
+    static uint8_t LIST = 0;
+    static uint8_t READ = 0;
+    static uint8_t CHDIR = 0;
 
     
     initproc();
@@ -725,6 +999,9 @@ void kernel_main(void) {
         STRPOKE = StringPrefixMatch(buff, "strpoke ");
         str(buff, "panic", TSTPNC);
         str(buff, "regdump", REGDUMP);
+        LIST = strings_match(buff, "list") || StringPrefixMatch(buff, "list ");        
+        READ = StringPrefixMatch(buff, "read ");
+        CHDIR = strings_match(buff, "chdir") || StringPrefixMatch(buff, "chdir ");
 
         if (HELP != 0) { help(); }
         else if (VER != 0) { ver(); }
@@ -742,10 +1019,13 @@ void kernel_main(void) {
         else if (STRPOKE != 0) { strpoke(buff); }
         else if (TSTPNC != 0) { panic("Debug panic", 123); }
         else if (REGDUMP != 0) { DumpRegisters(); }
+        else if (LIST != 0) { list(buff); }
+        else if (READ != 0) { readFile(buff); }
+        else if (CHDIR != 0) { chdir(buff); }
         else { 
             printcolvar((uint32_t)"Incorrect command: ", 0, VGA_COLOR_RED);
             printcolvar((uint32_t)buff, 0, VGA_COLOR_RED);
-        }
+        } 
         
         // This block clears out the variables that enable commands.
         // Specific commands at least. 
@@ -760,6 +1040,9 @@ void kernel_main(void) {
         SLEEP = 0;
         STRPEEK = 0;
         STRPOKE = 0;
+        READ = 0;
+        LIST = 0;
+        CHDIR = 0;
         // REBOOT = 0; Not needed. This value resets back to 0 after reboot.
         // TSTPNC not needed.
         
