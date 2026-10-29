@@ -10,6 +10,7 @@
 TOUR (TOUR Offends UNIX Rules) is a lightweight OS made to run on QEMU (without GRUB) and real hardware, made on C and Assembly.
 
 This operating system was made to be modular but it's basically spaghetti code to me now. I die
+Re: Everything other than main.c is practically not spaghetti code.
 
 # What can TOUR do?
 
@@ -54,6 +55,10 @@ echo                  - Repeats text (usage: echo TEXT)
 time                  - Shows time since boot in seconds
 sleep                 - Wait for specific time
 clear                 - Clear screen
+
+list                  - Basically LS. List files
+chdir                 - Basically CD. Switch between directories
+read                  - Read contents of files in text. Basically CAT
 
 reboot                - Reboot system (might shut down in certain VMs e.g VirtualBox)
 
