@@ -7,7 +7,7 @@
 </p>
 
 # What is TOUR?
-TOUR (TOUR Offends UNIX Rules) is a lightweight OS made to run on QEMU (without GRUB) and real hardware, made on C and Assembly.
+TOUR (TOUR Offends UNIX Rules) is a lightweight OS made to run on QEMU (without GRUB) and real hardware, made on C and Assembly. It has full framebuffer, SATA, AND ext4 filesystem support!
 
 This operating system was made to be modular but it's basically spaghetti code to me now. I die
 Re: Everything other than main.c is practically not spaghetti code.
@@ -17,7 +17,7 @@ Re: Everything other than main.c is practically not spaghetti code.
 - Read and wteri SATA disk sectors
 - Detect total RAM and how much RAM is taken
 - Detect and write username and hostname in disk (Username: sector 10, hostname: sector 9)
-- Look cool and haxxor moed
+- Look cool and haxxor moed. And like your usual Hackintosh. Haha apple.. no wait apple don't sue me please
 
 # Minimum specs to run TOUR
 
@@ -92,5 +92,9 @@ It can't even run programs, what do you think?
 
 It's not like I'm managing NetBSD myself, you know. Either you're challenging me or you have the worst computer known to man
 
+# Special thanks
+- gkostka for lwext4
+- erincandescent for elfload
+- My brain for not being a pea
 
 
