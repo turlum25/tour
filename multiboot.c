@@ -1,8 +1,10 @@
 #include <stdint.h>
+#include "fb.h"
 
 #define MULTIBOOT_BOOTLOADER_MAGIC 0x2BADB002u
 #define MULTIBOOT_INFO_MEMORY      (1u << 0)
 #define MULTIBOOT_INFO_MMAP        (1u << 6)
+#define MULTIBOOT_INFO_FRAMEBUFFER (1u << 12)
 #define MULTIBOOT_MEMORY_AVAILABLE 1u
 #define RAM_TOTAL_HANDOFF          ((volatile uint32_t *)0x7E00u)
 
@@ -17,6 +19,23 @@ struct multiboot_info {
     uint32_t symbols[4];
     uint32_t mmap_length;
     uint32_t mmap_address;
+    uint32_t drives_length;
+    uint32_t drives_address;
+    uint32_t config_table;
+    uint32_t boot_loader_name;
+    uint32_t apm_table;
+    uint32_t vbe_control_info;
+    uint32_t vbe_mode_info;
+    uint16_t vbe_mode;
+    uint16_t vbe_interface_seg;
+    uint16_t vbe_interface_off;
+    uint16_t vbe_interface_len;
+    uint64_t framebuffer_addr;
+    uint32_t framebuffer_pitch;
+    uint32_t framebuffer_width;
+    uint32_t framebuffer_height;
+    uint8_t  framebuffer_bpp;
+    uint8_t  framebuffer_type;
 } __attribute__((packed));
 
 struct multiboot_memory_map {
@@ -68,4 +87,13 @@ void multiboot_capture_ram(uint32_t magic, uint32_t info_address)
         total_kilobytes = UINT32_MAX;
     }
     *RAM_TOTAL_HANDOFF = (uint32_t)total_kilobytes;
+
+    if ((info->flags & MULTIBOOT_INFO_FRAMEBUFFER) != 0 &&
+        info->framebuffer_type == 1) {
+        screen_init(info->framebuffer_addr,
+                    info->framebuffer_pitch,
+                    info->framebuffer_width,
+                    info->framebuffer_height,
+                    info->framebuffer_bpp);
+    }
 }

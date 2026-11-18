@@ -2,6 +2,7 @@
 #define KEYBOARD_H
 
 #include "kernel.h"
+#include "fb.h"
 
 static const char scancode_table[64] = {
     0, 0, '1', '2', '3', '4', '5', '6',
@@ -30,7 +31,6 @@ static inline void read_keyboard_input_32(char *start, char *end) {
     int extended = 0;
     static int shift_pressed = 0; 
     static int caps_locked = 0;   
-    volatile uint16_t *const local_vga = (volatile uint16_t *)0xB8000;
     extern uint32_t cursor_pos; 
 
     if (start == NULL || end == NULL || end <= start) return;
@@ -43,7 +43,6 @@ static inline void read_keyboard_input_32(char *start, char *end) {
         if (scancode == 0xE0) { extended = 1; continue; }
         if (extended) { extended = 0; continue; }
 
-        /* --- CATCH SHIFT PRESS EVENTS --- */
         if (scancode == 0x2A || scancode == 0x36) {
             shift_pressed = 1;
             continue;
@@ -71,8 +70,8 @@ static inline void read_keyboard_input_32(char *start, char *end) {
             if (current > start) {
                 --current;
                 *current = '\0';
-                if (cursor_pos >= 2u) cursor_pos -= 2u;
-                local_vga[cursor_pos / 2u] = (uint16_t)((VGA_COLOR_WHITE << 8) | ' ');
+                print_char('\b');
+                cursor_pos = (!fb_addr ? vga_text_offset : cursor_index) * 2u;
             }
             continue;
         }

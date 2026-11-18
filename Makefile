@@ -1,12 +1,24 @@
+LWEXT4_SRC = $(wildcard disk/ext4/src/*.c)
+LWEXT4_OBJ = $(patsubst disk/ext4/src/%.c,$(OBJ_DIR)/lwext4_%.o,$(LWEXT4_SRC))
+LIBGCC = $(shell gcc -m32 -print-libgcc-file-name)
+
 OBJ_DIR = objects
 OBJ = $(OBJ_DIR)/main.o $(OBJ_DIR)/vga.o $(OBJ_DIR)/string.o \
-	$(OBJ_DIR)/runtime.o $(OBJ_DIR)/multiboot.o $(OBJ_DIR)/multiboot_c.o
+      $(OBJ_DIR)/runtime.o $(OBJ_DIR)/multiboot.o $(OBJ_DIR)/multiboot_c.o \
+      $(OBJ_DIR)/font.o $(LWEXT4_OBJ) \
+      $(OBJ_DIR)/elfext.o $(OBJ_DIR)/elfload.o \
+      $(OBJ_DIR)/elfreloc_i386.o
 
 QEMU = qemu-system-i386
-CFLAGS = -m32 -ffreestanding -O0 -fno-pic -fno-pie -fno-stack-protector -I. -Idisk/fs/ext2/src -c
+CFLAGS = -m32 -march=i486 -ffreestanding -O0 -fno-pic -fno-pie -fno-stack-protector \
+         -DCONFIG_USE_DEFAULT_CFG=1 -DCONFIG_HAVE_OWN_ERRNO=1 -DCONFIG_DEBUG_PRINTF=0 \
+         -DCONFIG_DEBUG_ASSERT=0 -DCONFIG_JOURNALING_ENABLE=0 \
+         -I. -Idisk/ext4/include -c
+
+
 
 .DEFAULT_GOAL := all
-.PHONY: all legacy-iso grub clean makedisk rundisk run
+.PHONY: all legacy-iso grub clean makedisk rundisk run test-ttfs
 
 all: legacy-iso
 
@@ -30,6 +42,9 @@ grub: tour.img kernel.elf boot/grub/grub.cfg
 $(OBJ_DIR):
 	mkdir -p $(OBJ_DIR)
 
+$(OBJ_DIR)/lwext4_%.o: disk/ext4/src/%.c | $(OBJ_DIR)
+	gcc $(CFLAGS) $< -o $@
+
 $(OBJ_DIR)/main.o: main.c disk/sata.h | $(OBJ_DIR)
 	gcc $(CFLAGS) main.c -o $(OBJ_DIR)/main.o
 
@@ -48,14 +63,28 @@ $(OBJ_DIR)/multiboot.o: multiboot.asm | $(OBJ_DIR)
 $(OBJ_DIR)/multiboot_c.o: multiboot.c | $(OBJ_DIR)
 	gcc $(CFLAGS) -fno-builtin multiboot.c -o $(OBJ_DIR)/multiboot_c.o
 
+
 $(OBJ_DIR)/bios.o: disk/bios.asm | $(OBJ_DIR) # Forgot why this is needed but i'll keep it
 	nasm -f elf32 disk/bios.asm -o $(OBJ_DIR)/bios.o
+
+$(OBJ_DIR)/font.o: font.c
+	gcc $(CFLAGS) -fno-builtin font.c -o $(OBJ_DIR)/font.o
+
+$(OBJ_DIR)/elfext.o: elf/elfext.c | $(OBJ_DIR)
+	$(CC) $(CFLAGS) elf/elfext.c -o $@
+
+$(OBJ_DIR)/elfload.o: elf/elfload.c | $(OBJ_DIR)
+	$(CC) $(CFLAGS) elf/elfload.c -o $@
+
+$(OBJ_DIR)/elfreloc_i386.o: elf/elfreloc_i386.c | $(OBJ_DIR)
+	$(CC) $(CFLAGS) elf/elfreloc_i386.c -o $@
+
 
 boot.bin: boot.asm
 	nasm -f bin boot.asm -o boot.bin
 
 kernel.elf: $(OBJ) linker.ld
-	ld -m elf_i386 -T linker.ld --build-id=none $(OBJ) -o kernel.elf
+	ld -m elf_i386 -T linker.ld --build-id=none $(OBJ) $(LIBGCC) -o kernel.elf
 
 main.bin: kernel.elf
 	objcopy -O binary kernel.elf main.bin
@@ -72,17 +101,16 @@ makedisk:
 
 grub-rundisk:
 	# Note: Please run after using make makedisk.
-	$(QEMU) -cpu 486 -m 4096K -cdrom tour-grub.iso -device ahci,id=ahci -drive format=raw,file=disk.img,if=none,id=sata_disk -device ide-hd,bus=ahci.0,drive=sata_disk -boot d
+	$(QEMU) -cpu 486 -m 16M -cdrom tour-grub.iso -device ahci,id=ahci -drive format=raw,file=disk.img,if=none,id=sata_disk -device ide-hd,bus=ahci.0,drive=sata_disk -boot d
 
 rundisk: grub
 	# Note: Please run after using make makedisk.
-	$(QEMU) -cpu 486 -m 2096K -cdrom tour.iso -device ahci,id=ahci -drive format=raw,file=disk.img,if=none,id=sata_disk -device ide-hd,bus=ahci.0,drive=sata_disk -boot d
+	$(QEMU) -cpu 486 -m 16M -cdrom tour.iso -device ahci,id=ahci -drive format=raw,file=disk.img,if=none,id=sata_disk -device ide-hd,bus=ahci.0,drive=sata_disk -boot d
 
 run: grub
 	# Running without storij... Depressing
-	$(QEMU) -cpu 486 -m 2096K -cdrom tour.iso
+	$(QEMU) -cpu 486 -m 16M -cdrom tour.iso
 
 grubrun:
-	# Also running without STORIJ
-	# You should learn to appreciate computers
-	$(QEMU) -cpu 486 -m 2096K -cdrom tour.iso
+	# Also running without fucking STORIJ... kill yourself user
+	$(QEMU) -cpu 486 -m 16M -cdrom tour-grub.iso

@@ -49,11 +49,20 @@ Note from dev:
 
 #include "disk/tmpfs.h"
 #include "disk/sata.h"
-#include "disk/ttfs.h"
+// #include "assembler.h"
+#include "disk/ext4/ext4.h" // 0.06!
+#include "fb.h" // 0.06!
+#include "colors.h" // 0x06..
+
+#include "elf/elfext.h" // YEAAAHHH! 0.06!! why tf am i doing this in exams
 
 // Vowed myself to not add this. Had to add this thoguh.
 #include <stdint.h>
+#include <stdlib.h>
 #include <stddef.h>
+
+char current_directory[256] = "/";
+
 
 
 // Dear forkers:
@@ -75,8 +84,8 @@ volatile uint16_t bios_probe_flags;
 volatile uint16_t bios_probe_bx;
 
 
-char User[1024] = "NULL"; // Username. Default NULL
-char Host[1024] = "NULL"; // PC hostname. Default NULL
+char User[1024] = "root"; // Username. Default NULL
+char Host[1024] = "tour"; // PC hostname. Default NULL
 
 // I SWEAR TO GOD I WILL SCREAM TOUR CAN PRINT ANY VARIABLE BUT THIS FOR SOME FUCKING REASON
 // static const char VERSION[8] = "0.03"; // TOUR VERSION. Don't change variable naem. We don't gotta be dumbasses, yk
@@ -86,7 +95,7 @@ char Host[1024] = "NULL"; // PC hostname. Default NULL
 int VERSION(int COLOR) { // This will never \n
     // Notes: This int just prints the version. Mod however you like, forkers 
     //        COLOR defines the color you wanna put. 
-    printcol("0.05", COLOR);
+    printcol("0.06b1", COLOR);
 }
 
 
@@ -100,7 +109,7 @@ uint32_t CurrentTime = 0;
 
 char SeeData[1024]; // This is where strsee() returns its data to.
 
-
+char buffclearer[1024];
 
 #define str(str1, str2, output) (output = strings_match(str1, str2))
 
@@ -166,6 +175,10 @@ int strsee(uint32_t sector_num) {
     return 1;
 }
 
+
+
+
+
 int strwrite(uint32_t sector_num, const char *data) {
     if (mounted == 0) { 
         printcol("Disk is not mounted.\n", VGA_COLOR_RED); 
@@ -193,9 +206,9 @@ int strwrite(uint32_t sector_num, const char *data) {
     return strsee(sector_num);
 }
 
-
-
-
+void charis(char *dest, const char *src) {
+    while ((*dest++ = *src++));
+}
 
 // Commands.
 void ver() {
@@ -205,14 +218,57 @@ void ver() {
     printcol("\n", VGA_COLOR_YELLOW);
 }
 void clear() {
-    extern uint32_t cursor_pos; 
-    volatile uint16_t *const local_vga = (volatile uint16_t *)0xB8000;
-    
-    for (uint32_t i = 0; i < VGA_CELLS; ++i) {
-        local_vga[i] = (uint16_t)((VGA_COLOR_WHITE << 8) | ' ');
+    extern uint32_t cursor_pos;
+    clear_screen(0x00);
+    cursor_pos = 0;
+}
+
+static int shell_next_token(const char **cursor, char *out, size_t max_len);
+
+void run(const char *command) {
+    if (!mounted || !ext4_mounted) {
+        printcol("[!] Filesystem not mounted, cannot continue\n", VGA_COLOR_RED); // Who tf will use elf without a disk and filesystem?!!!! Wtf!!
+        return;
     }
-    
-    cursor_pos = 0; 
+    const char *cursor = command + 4; // The obvious. Then run 
+                                      // will start counting from:
+                                      // 0[r] 1[u] 2[n] 3[ ] 4[HERE]
+                                      // peak!
+    char filename[512];
+    int token = shell_next_token(&cursor, filename, sizeof(filename));
+
+    if (token <= 0) {
+        printcol("Usage: run <file>\n", VGA_LIGHT_CYAN);
+        return;
+    }
+
+    telf_t program;
+
+    if (!elf_open(&program, filename)) {
+        printcol("[elf] [error] Failed to open ELF file\n", VGA_COLOR_RED);
+        return;
+    }
+
+    printf("[elf] Valid ELF file!\n");
+
+    el_status status = el_load(&program.ctx, elf_allocate);
+
+    printf("[elf] load status: %d\n", (int)status);
+
+    if (el_load(&program.ctx, elf_allocate) != EL_OK) {
+        printcol("[elf] [error] Loading failed\n", VGA_COLOR_RED);
+        elf_close(&program);
+        return;
+    }
+
+    printf("[elf] Loaded successfully!\n");
+
+    void (*entry)(void) =
+        (void (*)(void))(uintptr_t)program.ctx.ehdr.e_entry;
+
+    elf_close(&program);
+
+    entry();
 }
 void help() {
     printcol("help    - show this message\n", VGA_COLOR_WHITE);
@@ -235,7 +291,7 @@ void help() {
 }
 void echo(const char *buffer) {
     if (strings_match(buffer, "echo")) {
-        printcol("\n", VGA_COLOR_WHITE);
+        print("\n");
         return;
     }
     if (StringPrefixMatch(buffer, "echo ")) {
@@ -299,17 +355,17 @@ void fetch() {
     DetectCPU();
     checkprintram();
     
-    printcol("\n", VGA_COLOR_WHITE);
+    print("\n");
     printcolvar((uint32_t)User, 0, VGA_COLOR_GREEN);
     printcol(" * ", VGA_COLOR_GREEN);
     printcolvar((uint32_t)Host, 0, VGA_COLOR_GREEN);
     printcol("\n==============\n", VGA_COLOR_WHITE);
     printcolvar((uint32_t)"TOUR Version : ", 0, VGA_COLOR_GREEN);
     VERSION(VGA_COLOR_YELLOW);
-    printcol("\n", VGA_COLOR_WHITE);
+    print("\n");
     printcolvar((uint32_t)"CPU          : ", 0, VGA_COLOR_WHITE);
     printcolvar((uint32_t)CPUType, 0, VGA_COLOR_YELLOW);
-    printcol("\n", VGA_COLOR_WHITE);
+    print("\n");
     
     uint32_t print_taken = (uint32_t)TakenRAM;
     uint32_t print_total = (uint32_t)TotalRAM; /*TotalRAM always will print 640KB. That's what the fucking BIOS sees apparently.
@@ -343,33 +399,26 @@ void snore() {
     if (debug == 1) { // Originally added debug just to see buff1. How lazy am I?
         printcolvar((uint32_t)"[debug] buffer : ", 0, VGA_COLOR_YELLOW);
         printcolvar((uint32_t)buff1, 0, VGA_COLOR_YELLOW);
-        printcol("\n", VGA_COLOR_WHITE);
+        print("\n");
     }
     input("Enter seconds to sleep : ", buff1, buff1 + 1024);
     int preseconds = parse_hex(buff1);
     int seconds = preseconds + 1; // Add 1 second to sleep. THen it'll be accurate to user input
-                                  // "Your honor i added an extra second to align with *fucking reality*"
+                                  // "Your honor i added an extra second to align with *fucking reality*"\
+                                     Re: 10/31/2026 It somehow works, i don't know why but it somehow does.\
+                                         Alongside with the rest of the entire kernel
+                                  
     sleep(seconds);
     if (debug == 1) {
         printcolvar((uint32_t)"[debug] buffer : ", 0, VGA_COLOR_YELLOW);
         printcolvar((uint32_t)buff1, 0, VGA_COLOR_YELLOW);
-        printcol("\n", VGA_COLOR_WHITE);
+        print("\n");
     }
-    buff1[0] = '\0';
-    buff1[1] = '\0';
-    buff1[2] = '\0';
-    buff1[3] = '\0';
-    buff1[4] = '\0';
-    buff1[5] = '\0';
-    buff1[6] = '\0';
-    buff1[7] = '\0';
-    buff1[8] = '\0';
-    buff1[9] = '\0';
-    buff1[10] = '\0';
+    charis(buff1, buffclearer);
     if (debug == 1) {
         printcolvar((uint32_t)"[debug] buffer : ", 0, VGA_COLOR_YELLOW);
         printcolvar((uint32_t)buff1, 0, VGA_COLOR_YELLOW);
-        printcol("\n", VGA_COLOR_WHITE);
+        print("\n");
     }
     seconds = 0; // Clear seconds for next run
     preseconds = 0; // Also this. We shall not forget.
@@ -408,7 +457,7 @@ int username() {
     sleep(1);
     char YNcache[10];
     if (mounted == 0) {
-        printcol("[warning] Cannot search for username, SATA disk not mounted.", VGA_COLOR_RED);
+        printcol("[warning] Cannot search for username, SATA disk not mounted.\n", VGA_COLOR_RED);
         sleep(1);
         return 2;
     }
@@ -418,7 +467,8 @@ int username() {
     if(SeeData[0] == '\0' || SeeData[0] == '0') { // If strsee returns 0, that means nothing is in sector 10.
         printcol("[warning] Username not found in disk (sector 10)\n", VGA_COLOR_RED);
         input("Skip username? (Y/n) : ", YNcache, YNcache + 10);
-        if (YNcache[0] == 'Y' || YNcache[0] == 'y') { return 2; } // Exit if user wanna skip the username
+        if (YNcache[0] == 'Y' || YNcache[0] == 'y') { printcol("[note] Skipping user will temporarily be set to 'root'.\n       Unless you reboot, you will not be able to re-set your username\n", VGA_COLOR_YELLOW);
+            return 2; } // Exit if user wanna skip the username
         else {
             input("Enter username: ", User, User + 1024);
             if (User[0] == '0') {
@@ -433,7 +483,7 @@ int username() {
         printcol("[disk] Found username: ", VGA_COLOR_GREEN);
         printcolvar((uint32_t)SeeData, 0, VGA_COLOR_YELLOW);
         charis(User, SeeData);
-        printcol("\n", VGA_COLOR_WHITE);
+        print("\n");
         return 1;
     }
 }
@@ -456,7 +506,7 @@ int hostname() {
         printcol("[warning] Cannot find hostname in disk (sector 9)\n", VGA_COLOR_RED);
         input("Skip hostname? (Y/n): ", yncache, yncache + 10);
         if (yncache[0] == 'Y' || yncache[0] == 'y') {
-            printcol("[note] Skipping hostname will temporarily be set to NULL.\n       Unless you reboot, you will not be able to re-set your hostname", VGA_COLOR_YELLOW);
+            printcol("[note] Skipping hostname will temporarily be set to 'tour'.\n       Unless you reboot, you will not be able to re-set your hostname", VGA_COLOR_YELLOW);
         } else {
             input("Enter hostname: ", Host, Host + 1024); 
             if (Host[0] == '0') {
@@ -471,7 +521,7 @@ int hostname() {
         printcol("[disk] Found hostname: ", VGA_COLOR_GREEN);
         printcolvar((uint32_t)SeeData, 0, VGA_COLOR_YELLOW);
         charis(Host, SeeData);
-        printcol("\n", VGA_COLOR_WHITE);
+        print("\n");
         return 1;
     }
 }
@@ -480,26 +530,34 @@ int fileinit() {
     if (!mounted) {
         return 2;
     }
-    static const uint8_t initdata[] = "STRING\n";
-    printcol("\n[ttfs] Initialising filesystem\n", VGA_COLOR_WHITE); // SHitty filesystem you mean
-    if (fsinit() == 1) { printcol("[ttfs] Filesystem initialised successfully\n", VGA_COLOR_GREEN); }
-    else { printcol("[error] Filesystem cannot initialise.\n", VGA_COLOR_RED); } // Figure it out yourself
-    // debug = 1;
-    
-    if (debug == 1) {
-        fswrite("sys/testFile", initdata, sizeof(initdata));
-        fswrite("test/testFile", (const uint8_t *)"helloWorld! This is file reading in TOUR", 5);
-    } // I AM CRYING WHY DOES THIS CAUSE A REBOOT LOOP
-      // Re: fixed
+    printcol("\n[ext4] Initialising filesystem\n", VGA_COLOR_WHITE);
+    if (fs_mount()) {
+        printcol("[ext4] Filesystem mounted at /\n", VGA_COLOR_GREEN);
+    } else {
+        printcol("[ext4] [error] ext4 mount failed\n", VGA_COLOR_RED);
+        return 0;
+    }
+
     debug = 0;
+    if (debug == 1) {
+        const char *msg = "Doohickey\n";
+        fs_write("/welcome.txt", msg, 27, 0);
+    }
+
+    debug = 0;
+    return 1;
 }
+
+
 
 
 // Starts up username, disk drivers.
 
 int initproc() {
+    DetectCPU();
+    checkprintram();
     autopanic();
-    printcol("\n\nTOUR, by Turlum25, September, October 2026\n", VGA_COLOR_GREEN);
+    printcol("\n\nTOUR, by Turlum25, September, October, November 2026\n", VGA_COLOR_GREEN);
     printcolvar((uint32_t)"Version detected: ", 0, VGA_COLOR_GREEN);
     VERSION(VGA_COLOR_YELLOW);
     printcol("\n[warning] You may not be booting off of disk.\n          Your data may be lost after rebooting.\n", VGA_COLOR_RED);
@@ -529,6 +587,14 @@ int initproc() {
     */
     hostname();
     fileinit();
+
+    printcol("\nCPU Generation: ", VGA_COLOR_WHITE);
+    printcol(CPUType, VGA_COLOR_GREEN);
+    printcol("\nTotal memory (KB): ", VGA_COLOR_WHITE);
+    printcolvar(TotalRAM, 1, VGA_COLOR_GREEN);
+    printcol("\nTaken memory (KB): ", VGA_COLOR_WHITE);
+    printcolvar(TakenRAM, 1, VGA_COLOR_GREEN);
+    print("\n");
 
 
     return 0;
@@ -610,7 +676,7 @@ int strpeek(const char *buff) {
         }
     }
     
-    printcol("\n", VGA_COLOR_WHITE);
+    print("\n");
     return 1;
 }
 
@@ -638,211 +704,94 @@ int strpoke(const char *buff) {
 }
 
 
-static char current_directory[TTFS_FILENAME_SIZE];
-static ttfs_dirent_t shell_directory_entries[256];
-
-static int shell_next_token(const char **cursor, char *token, uint32_t capacity) {
-    while (**cursor == ' ' || **cursor == '\t') {
-        ++*cursor;
-    }
-    if (**cursor == '\0') {
-        return 0;
-    }
-
-    uint32_t length = 0;
-    int too_long = 0;
-    while (**cursor && **cursor != ' ' && **cursor != '\t') {
-        if (length + 1u < capacity) {
-            token[length++] = **cursor;
-        } else {
-            too_long = 1;
-        }
-        ++*cursor;
-    }
-    token[length] = '\0';
-    return too_long ? -1 : 1;
-}
-
-static int shell_resolve_path(const char *path, char resolved[TTFS_FILENAME_SIZE]) {
-    uint32_t length = 0;
-    if (path[0] != '/') {
-        while (current_directory[length]) {
-            resolved[length] = current_directory[length];
-            ++length;
-        }
-    }
-    resolved[length] = '\0';
-
-    while (*path) {
-        while (*path == '/') {
-            ++path;
-        }
-        if (!*path) {
-            break;
-        }
-
-        char component[TTFS_FILENAME_SIZE];
-        uint32_t component_length = 0;
-        while (*path && *path != '/') {
-            if (component_length + 1u >= sizeof(component)) {
-                return 0;
-            }
-            component[component_length++] = *path++;
-        }
-        component[component_length] = '\0';
-
-        if (component_length == 1 && component[0] == '.') {
-            continue;
-        }
-        if (component_length == 2 && component[0] == '.' &&
-            component[1] == '.') {
-            if (length) {
-                while (length && resolved[length - 1u] != '/') {
-                    --length;
-                }
-                if (length) {
-                    --length;
-                }
-                resolved[length] = '\0';
-            }
-            continue;
-        }
-
-        uint32_t separator = length ? 1u : 0u;
-        if (length + separator + component_length >= TTFS_FILENAME_SIZE) {
-            return 0;
-        }
-        if (separator) {
-            resolved[length++] = '/';
-        }
-        for (uint32_t i = 0; i < component_length; ++i) {
-            resolved[length++] = component[i];
-        }
-        resolved[length] = '\0';
-    }
-    return 1;
-}
-
-static int shell_parse_list_flags(const char *token, uint8_t *show_hidden,
-                                  uint8_t *long_format) {
-    if (token[0] != '-') {
-        return 0;
-    }
-    if (strings_match(token, "--")) {
-        return 2;
-    }
-    if (strings_match(token, "--all")) {
-        *show_hidden = 1;
-        return 1;
-    }
-    if (strings_match(token, "--long")) {
-        *long_format = 1;
-        return 1;
-    }
-    for (uint32_t i = 1; token[i]; ++i) {
-        if (token[i] == 'a') {
-            *show_hidden = 1;
-        } else if (token[i] == 'l') {
-            *long_format = 1;
-        } else {
-            return -1;
-        }
-    }
-    return 1;
-}
-
-
-
 
 // list command!
 void list(const char *command) {
-    if (!mounted || !fsready()) {
-        printcol("Disk/filesystem not ready\n", VGA_COLOR_RED);
+    const char *arg = command + 4;
+    char path[256];
+
+    while (arg && (*arg == ' ' || *arg == '\t')) arg++;
+
+    if (!arg || arg[0] == '\0') {
+        strcpy(path, current_directory);
+    } else if (arg[0] == '/') {
+        strcpy(path, arg);
+    } else {
+        strcpy(path, current_directory);
+        size_t len = strlen(path);
+        if (len > 1 && path[len - 1] != '/') {
+            path[len++] = '/';
+            path[len] = '\0';
+        }
+        strcpy(path + len, arg);
+    }
+
+    size_t plen = strlen(path);
+    if (plen > 1 && path[plen - 1] == '/') {
+        path[plen - 1] = '\0';
+    }
+
+    ext4_dir d;
+    if (ext4_dir_open(&d, path) != EOK) {
+        printcol("Directory not found\n", VGA_COLOR_RED);
         return;
     }
 
-    const char *cursor = command + (command[0] == 'l' && command[1] == 's' ? 2 : 4);
-    char token[TTFS_FILENAME_SIZE];
-    char directory[TTFS_FILENAME_SIZE];
-    uint8_t show_hidden = 0;
-    uint8_t long_format = 0;
-    uint8_t options_done = 0;
-    uint8_t have_path = 0;
- 
-    for (;;) {
-        int token_result = shell_next_token(&cursor, token, sizeof(token));
-        if (token_result == 0) {
-            break;
-        }
-        if (token_result < 0) {
-            printcol("Argument too long\n", VGA_COLOR_RED);
-            return;
-        }
-        int flag_result = options_done ? 0 :
-            shell_parse_list_flags(token, &show_hidden, &long_format);
-        if (flag_result < 0) {
-            printcol("Usage: list [-a] [-l] [path]\n", VGA_COLOR_YELLOW);
-            return;
-        }
-        if (flag_result == 1) {
+    const ext4_direntry *de;
+    while ((de = ext4_dir_entry_next(&d)) != NULL) {
+        const char *name = (const char *)de->name;
+        if (name[0] == '.') {
             continue;
         }
-        if (flag_result == 2) {
-            options_done = 1;
-            continue;
+
+        char full_item[512];
+        strcpy(full_item, path);
+        size_t flen = strlen(full_item);
+        if (flen > 1 && full_item[flen - 1] != '/') {
+            full_item[flen++] = '/';
+            full_item[flen] = '\0';
         }
-        if (have_path) {
-            printcol("Usage: list [-a] [-l] [path]\n", VGA_COLOR_YELLOW);
-            return;
+        strcpy(full_item + flen, name);
+
+        if (de->inode_type == EXT4_DE_DIR) {
+            printcol("(dir) ", VGA_LIGHT_CYAN);
+            printcol(name, VGA_LIGHT_CYAN);
+            printcol(" (4096B)\n", VGA_LIGHT_GREY);
+        } else {
+            uint64_t fsz = 0;
+            ext4_file f;
+            if (ext4_fopen(&f, full_item, "rb") == EOK) {
+                fsz = ext4_fsize(&f);
+                ext4_fclose(&f);
+            }
+            printcol("(file) ", VGA_COLOR_WHITE);
+            printcol(name, VGA_COLOR_GREEN);
+            printcol(" (", VGA_LIGHT_GREY);
+            printcolvar(fsz, 1, VGA_LIGHT_GREY);
+            printcol("B)\n", VGA_LIGHT_GREY);
         }
-        if (!shell_resolve_path(token, directory)) {
-            printcol("Pathtoo long\n", VGA_COLOR_RED);
-            return;
-        }
-        have_path = 1;
-    }
-    if (!have_path) {
-        uint32_t i = 0;
-        while (current_directory[i]) {
-            directory[i] = current_directory[i];
-            ++i;
-        }
-        directory[i] = '\0';
     }
 
-    uint32_t entry_count = 0;
-    if (!fslist_dir(directory, shell_directory_entries,
-                    sizeof(shell_directory_entries) /
-                        sizeof(shell_directory_entries[0]),
-                    &entry_count)) {
-        printcol(entry_count > sizeof(shell_directory_entries) /
-                                   sizeof(shell_directory_entries[0])
-                     ? "Directory has too many entries\n"
-                     : "Couldnt list directory\n",
-                 VGA_COLOR_RED);
-        return;
-    }
-
-    uint32_t shown = 0;
-    for (uint32_t i = 0; i < entry_count; ++i) {
-        ttfs_dirent_t *entry = &shell_directory_entries[i];
-        if (!show_hidden && entry->name[0] == '.') {
-            continue;
-        }
-        printcol(entry->name, entry->is_directory ? VGA_COLOR_GREEN : VGA_COLOR_WHITE);
-        if (entry->is_directory) {
-            printcol("/", VGA_COLOR_GREEN);
-        } else if (long_format) {
-            printcol("  ", VGA_COLOR_WHITE);
-            printcolvar(entry->size, 1, VGA_COLOR_YELLOW);
-        }
-        printcol("\n", VGA_COLOR_WHITE);
-        ++shown;
-    }
-    if (shown == 0) {
-        printcol("Directory is empty\n", VGA_COLOR_YELLOW);
-    }
+    ext4_dir_close(&d);
 }
+
+static int shell_next_token(const char **cursor, char *out, size_t max_len) {
+    const char *p = *cursor;
+    while (*p == ' ' || *p == '\t') p++;
+    if (*p == '\0') {
+        *cursor = p;
+        return 0;
+    }
+    size_t i = 0;
+    while (*p && *p != ' ' && *p != '\t') {
+        if (i + 1 >= max_len) return -1;
+        out[i++] = *p++;
+    }
+    out[i] = '\0';
+    *cursor = p;
+    return 1;
+}
+
 
 // chdir.
 void chdir(const char *command) {
@@ -852,8 +801,8 @@ void chdir(const char *command) {
         ++path;
     }
 
-    char token[TTFS_FILENAME_SIZE];
-    char resolved[TTFS_FILENAME_SIZE];
+    char token[256];
+    char resolved[256];
 
     if (!*path) {
         path = "/";
@@ -876,55 +825,92 @@ void chdir(const char *command) {
         return;
     }
 
-    if (!shell_resolve_path(token, resolved)) {
-        printcol("Path too long\n", VGA_COLOR_RED);
-        return;
+    if (token[0] == '/') {
+        strcpy(resolved, token);
+    } else {
+        strcpy(resolved, current_directory);
+        size_t len = strlen(resolved);
+        if (len > 1 && resolved[len - 1] != '/') {
+            resolved[len++] = '/';
+            resolved[len] = '\0';
+        }
+        strcpy(resolved + len, token);
     }
 
-    if (!mounted || !fsready() || !fsdir_exists(resolved)) {
+    size_t rlen = strlen(resolved);
+    if (rlen > 1 && resolved[rlen - 1] == '/') {
+        resolved[rlen - 1] = '\0';
+    }
+
+    ext4_dir d;
+    if (!mounted || !ext4_mounted || ext4_dir_open(&d, resolved) != EOK) {
         printcol("Directory not found\n", VGA_COLOR_RED);
         return;
     }
+    ext4_dir_close(&d);
 
     uint32_t i = 0;
-    while (resolved[i] && i < TTFS_FILENAME_SIZE - 1) {
+    while (resolved[i] && i < sizeof(current_directory) - 1) {
         current_directory[i] = resolved[i];
         ++i;
     }
     current_directory[i] = '\0';
 }
 
-static int readprintchnk(const uint8_t *data, uint32_t size, void *context) {
-    (void)context;
-    for (uint32_t i = 0; i < size; ++i) {
-        if (data[i] != '\0') {
-            put_char((char)data[i], VGA_COLOR_WHITE);
-        }
-    }
-    return 1;
-}
 
 void readFile(const char *command) {
-    const char *cursor = command + 4;
-    char filename[TTFS_FILENAME_SIZE];
+    const char *cursor = command;
+    if (strncmp(cursor, "read", 4) == 0) {
+        cursor += 4;
+    }
+
+    char filename[256];
+    char extra[256];
+
     if (shell_next_token(&cursor, filename, sizeof(filename)) != 1 ||
-        shell_next_token(&cursor, filename, sizeof(filename)) != 0) {
+        shell_next_token(&cursor, extra, sizeof(extra)) != 0) {
         printcol("Usage: read <filename>\n", VGA_COLOR_YELLOW);
         return;
     }
 
-    if (!mounted || !fsready()) {
+    if (!mounted || !ext4_mounted) {
         printcol("Disk/filesystem is not ready\n", VGA_COLOR_RED);
         return;
     }
-    char resolved[TTFS_FILENAME_SIZE];
-    if (!shell_resolve_path(filename, resolved) || !ttfs_valid_name(resolved)) {
-        printcol("Invalid/overlong path\n", VGA_COLOR_RED);
+
+    char resolved[256];
+    if (filename[0] == '/') {
+        strcpy(resolved, filename);
+    } else {
+        strcpy(resolved, current_directory);
+        size_t len = strlen(resolved);
+        if (len > 1 && resolved[len - 1] != '/') {
+            resolved[len++] = '/';
+            resolved[len] = '\0';
+        }
+        strcpy(resolved + len, filename);
+    }
+
+    ext4_file f;
+    int rc = ext4_fopen(&f, resolved, "rb");
+    if (rc != EOK) {
+        printf("ext4_fopen failed (%d) for: %s\n", rc, resolved);
         return;
     }
-    if (!fsread_stream(resolved, readprintchnk, NULL)) {
-        printcol("Couldnt read file\n", VGA_COLOR_RED);
+
+    char buf[512];
+    size_t br = 0;
+    while ((rc = ext4_fread(&f, buf, sizeof(buf) - 1, &br)) == EOK && br > 0) {
+        buf[br] = '\0';
+        print(buf);
     }
+
+    if (rc != EOK) {
+        printf("ext4_fread error: %d\n", rc);
+    }
+
+    ext4_fclose(&f);
+    print("\n");
 }
 
 
@@ -935,19 +921,11 @@ void readFile(const char *command) {
 // Prepare to be scared. I added a shell to the fucking kernel
 // HAHAHAHA I BROKE THE LAWS OF FUCKING KERNEL DEVELOPMENT
 // MIJAJAJAAFBFUIHJGFUIBFDUYFEUIYHFGFUYTEGFBIHDGFUE
-
 void kernel_main(void) __attribute__((noreturn, used));
 
 void kernel_main(void) {
-    
-    extern uint8_t __bss_start, __bss_end;
-    extern uint32_t cursor_pos; 
-    volatile uint8_t *p;
-    
-
-    for (p = &__bss_start; p < &__bss_end; ++p) {
-        *p = 0;
-    }
+    clear_screen(0x00);
+    extern uint32_t cursor_pos;
 
     // Main kernel print, stuff.
 
@@ -974,14 +952,23 @@ void kernel_main(void) {
     static uint8_t LIST = 0;
     static uint8_t READ = 0;
     static uint8_t CHDIR = 0;
+    static uint8_t RUN = 0;
 
     
     initproc();
     printcol("\nType 'help' for a list of commands.", VGA_COLOR_GREEN);
-    printcol("\n", VGA_COLOR_WHITE);
-
+    print("\n");
     while (1) {
-        input("# ", buff, buff + 1024);
+
+        print("{ ");
+        print(User);
+        printf(" * %s", Host); // using printf because i just found it
+        print(" ");
+        print(current_directory);
+        print(" }");
+        
+
+        input(" % ", buff, buff + 1024);
 
         str(buff, "help", HELP);
         str(buff, "ver", VER);
@@ -1002,6 +989,7 @@ void kernel_main(void) {
         LIST = strings_match(buff, "list") || StringPrefixMatch(buff, "list ");        
         READ = StringPrefixMatch(buff, "read ");
         CHDIR = strings_match(buff, "chdir") || StringPrefixMatch(buff, "chdir ");
+        RUN = strings_match(buff, "run") || StringPrefixMatch(buff, "run ");
 
         if (HELP != 0) { help(); }
         else if (VER != 0) { ver(); }
@@ -1020,8 +1008,11 @@ void kernel_main(void) {
         else if (TSTPNC != 0) { panic("Debug panic", 123); }
         else if (REGDUMP != 0) { DumpRegisters(); }
         else if (LIST != 0) { list(buff); }
-        else if (READ != 0) { readFile(buff); }
+        else if (strcmp(buff, "read") == 0 || strncmp(buff, "read ", 5) == 0) {readFile(buff);}
+
         else if (CHDIR != 0) { chdir(buff); }
+        else if (RUN != 0) { run(buff); }
+        else if (buff[0] == '\0') {print("\n");}
         else { 
             printcolvar((uint32_t)"Incorrect command: ", 0, VGA_COLOR_RED);
             printcolvar((uint32_t)buff, 0, VGA_COLOR_RED);
@@ -1043,13 +1034,14 @@ void kernel_main(void) {
         READ = 0;
         LIST = 0;
         CHDIR = 0;
+        RUN = 0;
         // REBOOT = 0; Not needed. This value resets back to 0 after reboot.
         // TSTPNC not needed.
         
         if (cursor_pos != 0) {
-            printcol("\n", VGA_COLOR_WHITE);
+            print("\n");
         }
-        printcol("\n", VGA_COLOR_WHITE);
+        print("\n");
     }
 
    // End of main kernel stuff.

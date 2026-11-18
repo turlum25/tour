@@ -317,3 +317,64 @@ int printf(const char *format, ...) {
     va_end(arguments);
     return emitted;
 }
+
+char *strcpy(char *dst, const char *src) {
+    char *ret = dst;
+    while ((*dst++ = *src++) != '\0') {}
+    return ret;
+}
+
+int strncmp(const char *s1, const char *s2, size_t n) {
+    while (n > 0) {
+        unsigned char c1 = (unsigned char)*s1++;
+        unsigned char c2 = (unsigned char)*s2++;
+        if (c1 != c2) return (int)c1 - (int)c2;
+        if (c1 == '\0') return 0;
+        n--;
+    }
+    return 0;
+}
+
+int memcmp(const void *s1, const void *s2, size_t n) {
+    const unsigned char *p1 = (const unsigned char *)s1;
+    const unsigned char *p2 = (const unsigned char *)s2;
+    for (size_t i = 0; i < n; i++) {
+        if (p1[i] != p2[i]) return (int)p1[i] - (int)p2[i];
+    }
+    return 0;
+}
+
+void *memmove(void *dst, const void *src, size_t n) {
+    unsigned char *d = (unsigned char *)dst;
+    const unsigned char *s = (const unsigned char *)src;
+    if (d < s) {
+        for (size_t i = 0; i < n; i++) d[i] = s[i];
+    } else if (d > s) {
+        for (size_t i = n; i > 0; i--) d[i - 1] = s[i - 1];
+    }
+    return dst;
+}
+
+void qsort(void *base, size_t nmemb, size_t size, int (*compar)(const void *, const void *)) {
+    unsigned char *arr = (unsigned char *)base;
+    unsigned char tmp[64];
+    if (size > sizeof(tmp)) return;
+    for (size_t i = 1; i < nmemb; i++) {
+        size_t j = i;
+        while (j > 0 && compar(arr + (j - 1) * size, arr + j * size) > 0) {
+            for (size_t b = 0; b < size; b++) {
+                tmp[b] = arr[(j - 1) * size + b];
+                arr[(j - 1) * size + b] = arr[j * size + b];
+                arr[j * size + b] = tmp[b];
+            }
+            j--;
+        }
+    }
+}
+
+void *calloc(size_t nmemb, size_t size) {
+    size_t total = nmemb * size;
+    void *ptr = malloc(total);
+    if (ptr != NULL) memset(ptr, 0, total);
+    return ptr;
+}

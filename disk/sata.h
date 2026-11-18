@@ -113,14 +113,16 @@ typedef struct {
 #ifdef SATA_IMPLEMENTATION
     __attribute__((aligned(4096))) uint8_t ahci_fis_buffer[1024];
     __attribute__((aligned(1024))) uint8_t ahci_cmd_list_buffer[1024];
-    __attribute__((aligned(256))) uint8_t ahci_cmd_table_buffer[512];
+    __attribute__((aligned(1024))) uint8_t ahci_cmd_table_buffer[1024];
     sata_drive_t primary_sata_master;
 #else
     extern uint8_t ahci_fis_buffer[1024];
     extern uint8_t ahci_cmd_list_buffer[1024];
-    extern uint8_t ahci_cmd_table_buffer[512];
+    extern uint8_t ahci_cmd_table_buffer[1024];
     extern sata_drive_t primary_sata_master;
 #endif
+
+
 
 static inline void sata_outb(uint16_t port, uint8_t value) {
     __asm__ __volatile__("outb %0, %1" : : "a"(value), "Nd"(port));
