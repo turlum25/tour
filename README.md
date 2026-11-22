@@ -60,6 +60,11 @@ list                  - Basically LS. List files
 chdir                 - Basically CD. Switch between directories
 read                  - Read contents of files in text. Basically CAT
 
+bob                   - bob
+coffee                - Code 418
+
+knad                  - Details about the kernel. Usage: knad [-a][-b][-n][-v]
+
 reboot                - Reboot system (might shut down in certain VMs e.g VirtualBox)
 
 ```
@@ -70,6 +75,9 @@ enabledebug          - Enables int debug in kernel into 1. Not mentioned in help
 disabledebug         - Disables int debug in kernel into 0. Not mentioned in help
 panic                - Purposefully panics your system (Added 0.05b1)
 regdump              - Dumps host computer's registers
+
+tcol                 - Switch between replacing white stuff with black, or black with white
+bcol                 - Change color of console background
 ```
 
 # Can TOUR run on real hardware?
