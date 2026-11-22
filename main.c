@@ -85,7 +85,7 @@ volatile uint16_t bios_probe_flags;
 volatile uint16_t bios_probe_bx;
 
 
-
+int VGA_COLOR_WHITE = 0x0F;
 
 
 char User[1024] = "root"; // Username. Default NULL
