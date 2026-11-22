@@ -7,7 +7,7 @@
 #define VGA_WIDTH        80u
 #define VGA_HEIGHT       25u
 #define VGA_CELLS        (VGA_WIDTH * VGA_HEIGHT)
-int VGA_COLOR_WHITE = 0x0F;
+extern int VGA_COLOR_WHITE;
 #define VGA_COLOR_RED    0x0Cu
 #define VGA_COLOR_GREEN  0x0Au
 #define VGA_COLOR_YELLOW 0x0Eu
