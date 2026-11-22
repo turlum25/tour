@@ -56,6 +56,6 @@ align 4
     dd MULTIBOOT_CHECKSUM
     dd 0, 0, 0, 0, 0
     dd 0
-    dd 1024
-    dd 768
+    dd 1280
+    dd 720
     dd 32
