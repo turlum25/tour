@@ -78,6 +78,7 @@ regdump              - Dumps host computer's registers
 
 tcol                 - Switch between replacing white stuff with black, or black with white
 bcol                 - Change color of console background
+pxl                  - Mess around with framebuffer
 ```
 
 # Can TOUR run on real hardware?
