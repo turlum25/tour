@@ -66,6 +66,31 @@ char current_directory[256] = "/";
 
 
 
+int atoi(const char *str) {
+    int result = 0;
+    int sign = 1;
+
+    while (*str == ' ')
+        str++;
+
+    if (*str == '-') {
+        sign = -1;
+        str++;
+    } else if (*str == '+') {
+        str++;
+    }
+
+    while (*str >= '0' && *str <= '9') {
+        result = result * 10 + (*str - '0');
+        str++;
+    }
+
+    return result * sign;
+}
+
+
+
+
 // Dear forkers:
 // Functions on top. Main cool stuff bottom. Don't leave early. Thanks
 
@@ -304,6 +329,7 @@ void help() {
     printcol("bcol    - change background of console\n", WHITE);
     printcol("tcol    - black instead of white text\n", WHITE);
     printcol("knad    - information about kernel\n", WHITE);
+    printcol("pxl     - mess around with framebuffer", WHITE);
     printcol("reboot  - reboot computer [WARNING: triple faulter]\n", VGA_COLOR_WHITE);
 }
 void echo(const char *buffer) {
@@ -938,6 +964,10 @@ void tcol() {
 }
 
 
+
+
+
+
 void bcol(const char *character) { // Changes background color
     const char *pointer = character + 5; // "bcol "
 
@@ -1016,6 +1046,7 @@ void knad(const char *character) { // Know About (The) Details
             printf(" %s", branch);
             print(" ");
             VERSION(VGA_WHITE);
+            printf(" %s", build);
         }
         else if (pointer[1] == 'b') { // Build, branch
             print(build);
@@ -1034,6 +1065,54 @@ void knad(const char *character) { // Know About (The) Details
     }
     else {print(vernum);}
 }
+
+
+
+void pxl() {
+    char x[32];
+    char y[32];
+    char c[32];
+    char sx[999];
+    char sy[999];
+
+    input("x: ", x, x + sizeof(x));
+    input("size x :", sx, sx + sizeof(sx));
+
+    input("y: ", y, y + sizeof(y));
+    input("size y:", sy, sy + sizeof(sy));
+    input("color: ", c, c + sizeof(c));
+
+    int sizex = atoi(sx);
+    int sizey = atoi(sy);
+    int xint = atoi(x);
+    int yint = atoi(y);
+    uint32_t color = RGB_WHITE; // Default obv
+
+    if (strings_match(c, "black")) color = RGB_BLACK;
+    else if (strings_match(c, "blue")) color = RGB_BLUE;
+    else if (strings_match(c, "green")) color = RGB_GREEN;
+    else if (strings_match(c, "cyan")) color = RGB_CYAN;
+    else if (strings_match(c, "red")) color = RGB_RED;
+    else if (strings_match(c, "magenta")) color = RGB_MAGENTA;
+    else if (strings_match(c, "brown")) color = RGB_BROWN;
+    else if (strings_match(c, "lightgrey")) color = RGB_LIGHT_GREY;
+    else if (strings_match(c, "darkgrey")) color = RGB_DARK_GREY;
+    else if (strings_match(c, "lightblue")) color = RGB_LIGHT_BLUE;
+    else if (strings_match(c, "lightgreen")) color = RGB_LIGHT_GREEN;
+    else if (strings_match(c, "lightcyan")) color = RGB_LIGHT_CYAN;
+    else if (strings_match(c, "lightred")) color = RGB_LIGHT_RED;
+    else if (strings_match(c, "lightmagenta")) color = RGB_LIGHT_MAGENTA;
+    else if (strings_match(c, "yellow")) color = RGB_YELLOW;
+    else if (strings_match(c, "white")) color = RGB_WHITE;
+
+    for (int py = 0; py < sizey; py++) {
+        for (int px = 0; px < sizex; px++) {
+            put_pixel(xint + px, yint + py, color);
+        }
+    }
+}
+
+
 
 // Why do I not comment at all in super fucking duper complicated functions? 
 
@@ -1079,6 +1158,7 @@ void kernel_main(void) {
     static uint8_t BOB = 0;
     static uint8_t CFE = 0;
     static uint8_t KNAD = 0;
+    static uint8_t PXL = 0;
 
     initproc();
     printcol("\nType 'help' for a list of commands.", VGA_COLOR_GREEN);
@@ -1122,6 +1202,7 @@ void kernel_main(void) {
         str(buff, "bob", BOB);
         str(buff, "coffee", CFE);
         KNAD = strings_match(buff, "knad") || StringPrefixMatch(buff, "knad ");
+        str(buff, "pxl", PXL);
 
         if (HELP != 0) { help(); }
         else if (VER != 0) { ver(); }
@@ -1148,6 +1229,7 @@ void kernel_main(void) {
         else if (BOB != 0) {bob();}
         else if (CFE != 0) {coffee();}
         else if (KNAD != 0) {knad(buff);}
+        else if (PXL != 0) {pxl();}
 
         else if (buff[0] == '\0') {print("\n");}
         else { 
@@ -1172,6 +1254,10 @@ void kernel_main(void) {
         LIST = 0;
         CHDIR = 0;
         RUN = 0;
+        PXL = 0; // Added this later
+        BOB = 0; // This
+        CFE = 0; // Also this
+        KNAD = 0; // This too. Idk how it worked without these flag resetters :sob:
         // REBOOT = 0; Not needed. This value resets back to 0 after reboot.
         // TSTPNC not needed.
         
